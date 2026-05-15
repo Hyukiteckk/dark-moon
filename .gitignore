@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / tooling
+.vscode/
+.idea/
+.claude/
+.devflow/
+
+# Electron build output
+dist/
+out/
+
+# Debug/test scripts (may contain hardcoded tokens)
+debug_*.mjs
+read_cookies.mjs
