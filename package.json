@@ -9,6 +9,7 @@
     "dev": "set ELECTRON_RUN_AS_NODE=&& electron desktop/main.cjs",
     "desktop": "set ELECTRON_RUN_AS_NODE=&& electron desktop/main.cjs",
     "build:win": "electron-builder --win --x64",
+    "build:publish": "electron-builder --win --x64 --publish=always",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -82,8 +83,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "SEU_USUARIO_GITHUB",
-      "repo": "SEU_REPOSITORIO",
+      "owner": "Hyukiteckk",
+      "repo": "Dark_Moon_Mission_Complete",
       "private": true
     }
   }

@@ -1,0 +1,4 @@
+{
+  "BOT_SERVICE_URL": "https://seu-worker.seu-subdominio.workers.dev",
+  "BOT_SECRET": "a-mesma-chave-configurada-no-worker"
+}

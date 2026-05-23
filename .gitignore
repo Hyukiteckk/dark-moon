@@ -30,3 +30,4 @@ data/session-secret.txt
 
 # Env com segredos
 .env
+desktop/config.json

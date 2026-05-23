@@ -2,7 +2,19 @@ const { app, BrowserWindow, shell, dialog } = require("electron");
 const path = require("path");
 const { fork } = require("child_process");
 const http = require("http");
+const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
+
+// Lê config.json local (não vai pro git)
+function loadConfig() {
+  try {
+    const configPath = path.join(__dirname, "config.json");
+    return JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+const botConfig = loadConfig();
 
 let win = null;
 let serverProcess = null;
@@ -60,8 +72,8 @@ app.whenReady().then(() => {
       ELECTRON_RUN_AS_NODE: "1",
       DATA_ROOT: dataRoot,
       HELPER_EXE: helperExe,
-      BOT_SERVICE_URL: "https://darkmoon-bot.abinhomartins.workers.dev",
-      BOT_SECRET: "26f70cce3ca6923f90e821d313ded9be9640f1b8f6f196a6122d3d9a84d54362",
+      BOT_SERVICE_URL: botConfig.BOT_SERVICE_URL || "",
+      BOT_SECRET: botConfig.BOT_SECRET || "",
     },
     execPath: process.execPath,
     stdio: "pipe",
