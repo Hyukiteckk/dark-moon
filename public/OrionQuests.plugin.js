@@ -1,8 +1,8 @@
-/**
- * @name OrionQuests
- * @description Conclusão automática de missões Discord. Abre o painel Orion automaticamente ao iniciar o Discord.
- * @version 4.6.3
- * @author syntt_
+﻿/**
+ * @name Dark-moonQuest
+ * @description Conclusão automática de missões Discord. Abre o painel automaticamente ao iniciar o Discord.
+ * @version 1.0.0
+ * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
     constructor() { this._pollTimer = null; this._flushTimer = null; }
@@ -48,9 +48,9 @@ module.exports = class OrionQuests {
                 /* ── config (Safe for users to edit) ────────────────────────── */
             
                 const CONFIG = {
-                    NAME: "Orion",
-                    VERSION: "v4.6.3",
-                    THEME: "#5865F2",             // discord blurple
+                    NAME: "Dark Moon",
+                    VERSION: "V1.0",
+                    THEME: "#a855f7",             // discord blurple
                     SUCCESS: "#3BA55C",
                     WARN: "#faa61a",
                     ERR: "#f04747",
@@ -182,32 +182,34 @@ module.exports = class OrionQuests {
                             #orion-ui {
                                 position: fixed; top: 32px; left: auto; right: 20px; width: 380px;
                                 max-height: 53vh;
-                                background: var(--background-base-low); color: var(--text-default);
-                                border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
-                                box-shadow: var(--shadow-button-overlay); z-index: 99999;
-                                font-family: var(--font-primary);
+                                background: #07040e; color: #bbaee0;
+                                border: 1px solid #261550; border-radius: 14px;
+                                box-shadow: 0 0 28px rgba(168,85,247,.22), 0 12px 36px rgba(0,0,0,.85); z-index: 99999;
+                                font-family: 'Segoe UI','gg sans','Noto Sans',sans-serif;
                                 overflow: hidden; animation: slideIn 0.3s ease; 
                                 display: flex; flex-direction: column; box-sizing: border-box;
                                 user-select: none;
                             }
                             
-                            #orion-head { padding: 12px 16px; background: var(--background-mod-muted); flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); cursor: grab; }
-                            #orion-head.dragging { cursor: grabbing; background: var(--control-secondary-background-default); }
-                            #orion-title { font-weight: 700; font-size: 15px; color: var(--text-strong); display: flex; align-items: center; gap: 8px; }
-                            #orion-title svg { color: var(--text-brand); }
-                            .dev-credit { font-size: 12px; margin-left: -4px; padding-top: 2px; font-weight: 500; color: var(--text-muted); }
+                            #orion-head { padding: 12px 16px; background: #0c0719; flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #261550; cursor: grab; }
+                            #orion-head.dragging { cursor: grabbing; background: rgba(168,85,247,.06); }
+                            #orion-title { font-weight: 700; font-size: 15px; color: #e2baff; display: flex; align-items: center; gap: 8px; }
+                            #orion-title svg { color: #a855f7; }
+                            .dev-credit { font-size: 12px; margin-left: -4px; padding-top: 2px; font-weight: 500; color: #8b6ab5; }
                             
                             #orion-controls { display: flex; gap: 10px; align-items: center; }
                             .ctrl-btn { cursor: pointer; transition: 0.2s; display: flex; align-items: center; }
-                            .ctrl-hide { font-size: 11px; font-weight: 600; color: var(--text-muted); }
-                            .ctrl-hide:hover { color: var(--text-default); }
-                            .ctrl-stop { font-size: 11px; font-weight: 700; gap: 4px; padding: 3px 8px 3px 6px; border-radius: var(--radius-sm); background: transparent; border: 1px solid var(--control-critical-primary-background-default); color: var(--control-critical-primary-background-default); }
-                            .ctrl-stop:hover { background: var(--control-critical-primary-background-default); color: #fff; }
+                            .ctrl-min { font-size: 15px; font-weight: 700; color: #8b6ab5; line-height: 1; padding: 0 2px; }
+                            .ctrl-min:hover { color: #bbaee0; }
+                            .ctrl-hide { font-size: 15px; font-weight: 400; color: #8b6ab5; line-height: 1; transition: color .15s; }
+                            .ctrl-hide:hover { color: #f47070; }
+                            .ctrl-stop { font-size: 11px; font-weight: 700; gap: 4px; padding: 3px 8px 3px 6px; border-radius: 8px; background: transparent; border: 1px solid #f04747; color: #f04747; }
+                            .ctrl-stop:hover { background: #f04747; color: #fff; }
                             
-                            #orion-logs { padding: 10px 14px; background: var(--background-base-lower); flex: 0 0 auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; height: 110px; overflow-y: auto; border-top: 1px solid var(--border-subtle); scroll-behavior: smooth; }
+                            #orion-logs { padding: 10px 14px; background: #030104; flex: 0 0 auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; height: 110px; overflow-y: auto; border-top: 1px solid #261550; scroll-behavior: smooth; }
                             .log-item { margin-bottom: 6px; display: flex; gap: 8px; line-height: 1.4; padding-bottom: 4px; }
                             .log-ts { opacity: 0.5; min-width: 50px; font-size: 10px; }
-                            .c-info { color: var(--text-feedback-info); opacity: .8; } .c-success { color: var(--text-feedback-positive); } .c-err { color: var(--text-feedback-critical); } .c-warn { color: var(--text-feedback-warning); } .c-debug { color: #949ba4; }
+                            .c-info { color: #5b8af7; opacity: .8; } .c-success { color: #3ba55c; } .c-err { color: #f04747; } .c-warn { color: #faa61a; } .c-debug { color: #949ba4; }
                             
                             #orion-body { flex: 1 1 auto; padding: 12px; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
                             
@@ -215,85 +217,85 @@ module.exports = class OrionQuests {
                             
                             #orion-ui ::-webkit-scrollbar { width: 4px; height: 4px; }
                             #orion-ui ::-webkit-scrollbar-track { background: transparent; }
-                            #orion-ui ::-webkit-scrollbar-thumb { background: var(--scrollbar-auto-scrollbar-color-thumb); border-radius: 4px; }
+                            #orion-ui ::-webkit-scrollbar-thumb { background: #5b2d9e; border-radius: 4px; }
             
                             .task-card { 
-                                --state-color: var(--ansi-bright-blue);
+                                --state-color: #a855f7;
                                 --icon-bg-opacity: 15%;
                                 --icon-color: var(--state-color);
                                 
                                 display: flex; gap: 12px; padding: 10px 12px; margin-bottom: 8px; align-items: center;
-                                background: var(--control-secondary-background-default); 
-                                border-radius: var(--radius-sm); border: 1px solid var(--border-muted); 
+                                background: rgba(168,85,247,.06); 
+                                border-radius: 8px; border: 1px solid #1a0d35; 
                                 border-left: 4px solid var(--state-color);
-                                box-shadow: var(--shadow-low); transition: 0.3s; flex-shrink: 0;
+                                box-shadow: 0 2px 8px rgba(0,0,0,.4); transition: 0.3s; flex-shrink: 0;
                             }
                             .task-card.removing { animation: fadeOut 0.4s forwards; }
-                            .task-card.done { --state-color: var(--ansi-green); --icon-bg-opacity: 100%; --icon-color: #fff; }
-                            .task-card.failed { --state-color: var(--ansi-red); }
-                            .task-card.pending { --state-color: var(--ansi-bright-yellow); }
+                            .task-card.done { --state-color: #3ba55c; --icon-bg-opacity: 100%; --icon-color: #fff; }
+                            .task-card.failed { --state-color: #f04747; }
+                            .task-card.pending { --state-color: #faa61a; }
                             
                             .task-icon { position: relative; width: 40px; height: 40px; border-radius: 50%; flex: 0 0 auto; background-color: color-mix(in srgb, var(--state-color) var(--icon-bg-opacity), transparent); display: flex; align-items: center; justify-content: center; }
                             
-                            .task-card.running .task-icon::before { content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: 1; background: conic-gradient(lch(71 59 139) 0% var(--p, 0%), var(--border-subtle) var(--p, 0%) 100%); -webkit-mask-image: radial-gradient(circle at center, transparent 16px, black 17px); mask-image: radial-gradient(circle at center, transparent 16px, black 17px); }
+                            .task-card.running .task-icon::before { content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: 1; background: conic-gradient(#a855f7 0% var(--p, 0%), #261550 var(--p, 0%) 100%); -webkit-mask-image: radial-gradient(circle at center, transparent 16px, black 17px); mask-image: radial-gradient(circle at center, transparent 16px, black 17px); }
                             
                             .task-icon-inner { z-index: 2; color: var(--icon-color); display: flex; transition: filter 0.2s, opacity 0.2s; }
                             .task-card.running:hover .task-icon-inner { filter: blur(2px); opacity: 0.3; }
                             
-                            .task-icon-overlay { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: var(--text-default); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+                            .task-icon-overlay { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #bbaee0; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
                             .task-card.running:hover .task-icon-overlay { opacity: 1; }
                             
                             .task-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; justify-content: center; }
                             .task-status { font-size: 10px; font-weight: 800; color: var(--state-color); text-transform: uppercase; letter-spacing: 0.5px; }
-                            .task-name { font-size: 13px; font-weight: 700; color: var(--text-strong); letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-                            .task-meta { font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; justify-content: space-between; }
+                            .task-name { font-size: 13px; font-weight: 700; color: #e2baff; letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+                            .task-meta { font-size: 11px; font-weight: 700; color: #8b6ab5; display: flex; justify-content: space-between; }
                             .task-actions { flex: 0 0 auto; display: flex; align-items: center; margin-left: 4px; }
                             
-                            .claim-btn, .goto-btn { padding: 6px 10px; border: none; border-radius: var(--radius-sm); font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.2px; white-space: nowrap; font-family: inherit; color: #fff; }
-                            .claim-btn { background: var(--control-connected-background-default); }
-                            .claim-btn:hover:not(:disabled) { background: var(--control-connected-background-hover); }
+                            .claim-btn, .goto-btn { padding: 6px 10px; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.2px; white-space: nowrap; font-family: inherit; color: #fff; }
+                            .claim-btn { background: #3ba55c; }
+                            .claim-btn:hover:not(:disabled) { background: #2d8c4c; }
                             .claim-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-                            .claim-btn.failed { background: var(--control-secondary-background-active); color: var(--text-default); }
-                            .goto-btn { background: var(--control-primary-background-default); }
-                            .goto-btn:hover:not(:disabled) { background: var(--control-primary-background-hover); }
+                            .claim-btn.failed { background: rgba(168,85,247,.18); color: #bbaee0; }
+                            .goto-btn { background: #7c3aed; }
+                            .goto-btn:hover:not(:disabled) { background: #9333ea; }
                             
-                            .picker-section-title { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+                            .picker-section-title { font-size: 11px; font-weight: 700; color: #8b6ab5; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
                             .reward-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0; }
                             
-                            .reward-filter, .type-filter { background-color: transparent; border: 2px solid; padding: 4px 10px; border-radius: 24px; font-size: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; color: var(--text-subtle); font-family: inherit; }
+                            .reward-filter, .type-filter { background-color: transparent; border: 2px solid; padding: 4px 10px; border-radius: 24px; font-size: 10px; font-weight: 600; cursor: pointer; transition: 0.2s; color: #6b4d9a; font-family: inherit; }
                             .reward-filter:hover, .type-filter:hover { background-color: color-mix(in srgb, currentColor 25%, transparent); }
-                            .reward-filter.off, .type-filter.off { background: transparent; color: var(--text-muted); opacity: 0.4; }
+                            .reward-filter.off, .type-filter.off { background: transparent; color: #8b6ab5; opacity: 0.4; }
                             
                             .picker-quest-list { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 50px; overflow-y: auto; padding-right: 4px; margin-bottom: 12px; }
                             
-                            .quest-pick { display: flex; gap: 12px; padding: 10px; background: var(--control-secondary-background-default); border-radius: var(--radius-sm); border: 1px solid var(--border-muted); border-left-width: 4px; cursor: pointer; transition: 0.2s; align-items: center; user-select: none; flex-shrink: 0; }
+                            .quest-pick { display: flex; gap: 12px; padding: 10px; background: rgba(168,85,247,.06); border-radius: 8px; border: 1px solid #1a0d35; border-left-width: 4px; cursor: pointer; transition: 0.2s; align-items: center; user-select: none; flex-shrink: 0; }
                             .quest-pick:hover { filter: brightness(1.15); }
                             .quest-pick.hidden { display: none !important; }
                             
-                            .native-cb { appearance: none; width: 20px; height: 20px; margin: 0; flex-shrink: 0; border: 1px solid var(--checkbox-border-default); border-radius: var(--radius-xs); background: transparent; cursor: pointer; transition: 0.15s; display: grid; place-content: center; }
+                            .native-cb { appearance: none; width: 20px; height: 20px; margin: 0; flex-shrink: 0; border: 1px solid #5b2d9e; border-radius: 4px; background: transparent; cursor: pointer; transition: 0.15s; display: grid; place-content: center; }
                             .native-cb::before {
                                 content: ''; width: 12px; height: 12px; opacity: 0; transition: 0.1s;
                                 background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
                                 background-size: contain; background-repeat: no-repeat; background-position: center;
                             }
-                            .native-cb:checked { background: var(--checkbox-background-selected-default); border-color: var(--checkbox-border-selected-default); }
+                            .native-cb:checked { background: #9333ea; border-color: #a855f7; }
                             .native-cb:checked::before { opacity: 1; }
                             
                             .picker-options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; flex-shrink: 0; }
-                            .orion-option { display: flex; justify-content: space-between; align-items: center; background: var(--control-secondary-background-default); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-muted); }
-                            .orion-option-label { font-size: 13px; font-weight: 500; color: var(--text-default); }
+                            .orion-option { display: flex; justify-content: space-between; align-items: center; background: rgba(168,85,247,.06); padding: 8px 12px; border-radius: 8px; border: 1px solid #1a0d35; }
+                            .orion-option-label { font-size: 13px; font-weight: 500; color: #bbaee0; }
                             
-                            .native-toggle { appearance: none; width: 40px; height: 20px; margin: 0; flex-shrink: 0; background: var(--control-secondary-background-default); border-radius: 12px; cursor: pointer; position: relative; transition: 0.2s; border: 1px solid var(--border-muted); }
-                            .native-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: white; border-radius: 50%; box-shadow: var(--shadow-low); transition: 0.2s; }
-                            .native-toggle:checked { background: var(--control-primary-background-default); }
+                            .native-toggle { appearance: none; width: 40px; height: 20px; margin: 0; flex-shrink: 0; background: rgba(168,85,247,.06); border-radius: 12px; cursor: pointer; position: relative; transition: 0.2s; border: 1px solid #1a0d35; }
+                            .native-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.4); transition: 0.2s; }
+                            .native-toggle:checked { background: #7c3aed; }
                             .native-toggle:checked::after { transform: translateX(20px); }
                             
-                            .picker-actions { display: flex; gap: 10px; border-top: 1px solid var(--border-subtle); padding-top: 8px; flex-shrink: 0; }
-                            .quest-pick-btn { flex: 1; padding: 10px; border: 1px solid; border-radius: var(--radius-sm, 8px); font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; color: #fff;}
-                            .quest-pick-btn.start { background-color: var(--control-connected-background-default); border-color: var(--control-connected-border-default); }
-                            .quest-pick-btn.start:hover:not(:disabled) { background: var(--control-connected-background-hover); border-color: var(--control-connected-border-hover); }
-                            .quest-pick-btn.deselect { background-color: var(--control-secondary-background-default); border-color: var(--control-secondary-border-default); color: var(--text-default); }
-                            .quest-pick-btn.deselect:hover:not(:disabled) { background: var(--control-secondary-background-hover); }
+                            .picker-actions { display: flex; gap: 10px; border-top: 1px solid #261550; padding-top: 8px; flex-shrink: 0; }
+                            .quest-pick-btn { flex: 1; padding: 10px; border: 1px solid; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; color: #fff;}
+                            .quest-pick-btn.start { background-color: #3ba55c; border-color: #2d8c4c; }
+                            .quest-pick-btn.start:hover:not(:disabled) { background: #2d8c4c; border-color: #236b3a; }
+                            .quest-pick-btn.deselect { background-color: rgba(168,85,247,.06); border-color: #261550; color: #bbaee0; }
+                            .quest-pick-btn.deselect:hover:not(:disabled) { background: rgba(168,85,247,.12); }
                             .quest-pick-btn:disabled { opacity: 0.5; cursor: not-allowed; }
                         `;
                         document.head.appendChild(style);
@@ -303,15 +305,16 @@ module.exports = class OrionQuests {
                         this.root.innerHTML = `
                             <div id="orion-head">
                                 <span id="orion-title">${ICONS.BOLT} ${CONFIG.NAME}
-                                    <span class="dev-credit">by syntt_</span>
+                                    <span class="dev-credit">By Hyukiteckk</span>
                                     <span style="opacity:0.6; font-size:10px; margin-left:4px; padding-top: 3px; font-weight:500;">${CONFIG.VERSION}</span>
                                 </span>
                                 <div id="orion-controls">
                                     <span class="ctrl-btn ctrl-stop" id="orion-stop" title="Stop script">${ICONS.STOP} STOP</span>
-                                    <span class="ctrl-btn ctrl-hide" id="orion-close" title="Shift + .">HIDE</span>
+                                    <span class="ctrl-btn ctrl-min" id="orion-min" title="Minimizar">—</span>
+                                    <span class="ctrl-btn ctrl-hide" id="orion-close" title="Fechar painel (Shift + .)">&#x2715;</span>
                                 </div>
                             </div>
-                            <div id="orion-body"><div style="text-align:center; padding:30px; color:var(--text-muted); font-size:12px; font-weight:500;">Initializing System...</div></div>
+                            <div id="orion-body"><div style="text-align:center; padding:30px; color:#8b6ab5; font-size:12px; font-weight:500;">Initializing System...</div></div>
                             <div id="orion-logs"></div>
                         `;
                         document.body.appendChild(this.root);
@@ -387,6 +390,7 @@ module.exports = class OrionQuests {
             
                         document.getElementById('orion-close').onclick = () => this.toggle();
                         document.getElementById('orion-stop').onclick = () => this.shutdown();
+                        document.getElementById('orion-min').onclick = () => this.minimize();
                         document.addEventListener('keydown', e => (e.key === '>' || (e.shiftKey && e.key === '.')) && this.toggle());
             
                         try { if (Notification.permission === "default") Notification.requestPermission(); } catch (e) {
@@ -396,7 +400,23 @@ module.exports = class OrionQuests {
                         this.startTicker();
                     },
             
-                    toggle() { this.root.style.display = this.root.style.display === 'none' ? 'flex' : 'none'; },
+                    toggle() {
+                        const hidden = this.root.style.display === 'none';
+                        this.root.style.display = hidden ? 'flex' : 'none';
+                        const fab = document.getElementById('orion-fab');
+                        if (fab) { fab.style.display = hidden ? 'none' : 'flex'; }
+                    },
+
+                    minimize() {
+                        const body = document.getElementById('orion-body');
+                        const logs = document.getElementById('orion-logs');
+                        const btn  = document.getElementById('orion-min');
+                        const minimized = body?.style.display === 'none';
+                        if (body) body.style.display = minimized ? '' : 'none';
+                        if (logs) logs.style.display  = minimized ? '' : 'none';
+                        if (btn)  btn.textContent      = minimized ? '—' : '+';
+                        this.root.style.maxHeight      = minimized ? '53vh' : 'none';
+                    },
             
                     shutdown() {
                         if (!RUNTIME.running) return;
@@ -415,6 +435,8 @@ module.exports = class OrionQuests {
                             const styles = document.getElementById('orion-styles');
                             if (styles) styles.remove();
                             if (this.root?.parentElement) this.root.remove();
+                            const fab = document.getElementById('orion-fab');
+                            if (fab) fab.remove();
                             window.orionLock = false;
                         }, 1000);
                     },
@@ -480,7 +502,7 @@ module.exports = class OrionQuests {
                     },
             
                     log(msg, type = 'info') {
-                        const colors = { info: "#5865F2", success: "#3BA55C", warn: "#faa61a", err: "#f04747", debug: "#999" };
+                        const colors = { info: "#a855f7", success: "#3BA55C", warn: "#faa61a", err: "#f04747", debug: "#999" };
                         console.log(`%c[ORION] %c${msg}`, `color: ${CONFIG.THEME}; font-weight: bold;`, `color: ${colors[type] || colors.info}`);
                         try {
                             const box = document.getElementById('orion-logs');
@@ -497,7 +519,7 @@ module.exports = class OrionQuests {
                         if (document.getElementById('orion-picker-form')) return;
                         const body = document.getElementById('orion-body');
                         if (!body) return;
-                        if (!this.tasks.size) return body.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px;">Waiting for tasks...</div>`;
+                        if (!this.tasks.size) return body.innerHTML = `<div style="text-align:center; padding:30px; color:#8b6ab5; font-size:13px;">Waiting for tasks...</div>`;
             
                         const sorted = [...this.tasks.entries()].sort((a, b) => {
                             const ta = a[1], tb = b[1];
@@ -520,6 +542,7 @@ module.exports = class OrionQuests {
                                 t.done ? ICONS.CHECK :
                                 t.failed ? ICONS.STOP :
                                 t.pending ? ICONS.CLOCK :
+                                (t.appId && t.appIcon) ? `<img src="https://cdn.discordapp.com/app-icons/${t.appId}/${t.appIcon}.webp?size=64" style="width:26px;height:26px;border-radius:6px;object-fit:cover;display:block;flex-shrink:0" onerror="this.style.display='none'">` :
                                 t.type === 'VIDEO' ? ICONS.VIDEO :
                                 t.type === 'ACHIEVEMENT' ? ICONS.ACTIVITY :
                                 t.type?.includes('GAME') ? ICONS.GAME :
@@ -590,7 +613,7 @@ module.exports = class OrionQuests {
                             const rewardTypes = new Map();
                             const questTypes = new Set();
             
-                            const REWARD_META = { 1: { label: "IN-GAME", color: "#e67e22" }, 3: { label: "AVATAR DECORATION", color: "#a358f2" }, 4: { label: "ORBS", color: "#5865F2" } };
+                            const REWARD_META = { 1: { label: "IN-GAME", color: "#e67e22" }, 3: { label: "AVATAR DECORATION", color: "#a358f2" }, 4: { label: "ORBS", color: "#a855f7" } };
                             const REWARD_FALLBACK = { label: "OTHER", color: "#949ba4" };
             
                             quests.forEach(q => {
@@ -634,7 +657,7 @@ module.exports = class OrionQuests {
                                     <div class="task-info">
                                         <div class="task-name" title="${q.name}">${q.name}</div>
                                         <div class="task-meta" style="justify-content: flex-start; gap: 8px;">
-                                            <span style="text-transform: uppercase; color: var(--text-subtle);">${q.type}</span>
+                                            <span style="text-transform: uppercase; color: #6b4d9a;">${q.type}</span>
                                             <span style="color: ${q.color};">${q.rewardText}</span>
                                         </div>
                                     </div>
@@ -662,7 +685,7 @@ module.exports = class OrionQuests {
                                     ` : ''}
                                     
                                     <div id="orion-quest-list" class="picker-quest-list">${items.map(buildCard).join('')}
-                                        <div id="orion-no-quests" style="display: none; margin: auto; text-align: center; color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <div id="orion-no-quests" style="display: none; margin: auto; text-align: center; color: #8b6ab5; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                                             No quests available
                                         </div>
                                     </div>
@@ -1007,10 +1030,44 @@ module.exports = class OrionQuests {
                         }
                     },
             
-                    async claimReward(questId) {
-                        return await Mods.API.post({
-                            url: `/quests/${questId}/claim-reward`,
-                            body: { platform: 0, location: 11, is_targeted: false, metadata_raw: null, metadata_sealed: null, traffic_metadata_raw: null, traffic_metadata_sealed: null }
+                    async claimReward(questId, captchaKey) {
+                        const body = { platform: 0, location: 11, is_targeted: false, metadata_raw: null, metadata_sealed: null, traffic_metadata_raw: null, traffic_metadata_sealed: null };
+                        if (captchaKey) body.captcha_key = captchaKey;
+                        return await Mods.API.post({ url: `/quests/${questId}/claim-reward`, body });
+                    },
+
+                    getCaptchaToken(sitekey, rqdata, rqtoken) {
+                        return new Promise((resolve, reject) => {
+                            const TIMEOUT = 90_000;
+                            let settled = false;
+
+                            const done = (token) => {
+                                if (settled) return;
+                                settled = true;
+                                clearTimeout(tid);
+                                try { Mods.Dispatcher.unsubscribe('CAPTCHA_COMPLETED', onDone); } catch {}
+                                try { Mods.Dispatcher.unsubscribe('CAPTCHA_CANCEL', onCancel); } catch {}
+                                try { Mods.Dispatcher.unsubscribe('CAPTCHA_CANCELED', onCancel); } catch {}
+                                token ? resolve(token) : reject(new Error('Captcha cancelado'));
+                            };
+
+                            const tid = setTimeout(() => done(null), TIMEOUT);
+                            const onDone   = (e) => done(e?.captchaToken ?? e?.token ?? null);
+                            const onCancel = () => done(null);
+
+                            Mods.Dispatcher.subscribe('CAPTCHA_COMPLETED', onDone);
+                            Mods.Dispatcher.subscribe('CAPTCHA_CANCEL', onCancel);
+                            Mods.Dispatcher.subscribe('CAPTCHA_CANCELED', onCancel);
+
+                            Mods.Dispatcher.dispatch({
+                                type: 'CAPTCHA_REQUIRED',
+                                captchaRequiredData: {
+                                    captcha_sitekey: sitekey,
+                                    captcha_rqdata: rqdata,
+                                    captcha_rqtoken: rqtoken,
+                                    captcha_service: 'hcaptcha'
+                                }
+                            });
                         });
                     },
             
@@ -1164,91 +1221,139 @@ module.exports = class OrionQuests {
                     },
             
                     // ACHIEVEMENT_IN_ACTIVITY — target is usually 1 (a milestone, not seconds).
-                    // First tries active heartbeat spoofing (same as ACTIVITY handler).
-                    // If Discord rejects with 4xx, falls back to passive event monitoring.
+                    // Strategy 1: try multiple stream_key formats (none, activities:, call:).
+                    // Strategy 2: inject app via RPC and wait for Discord to send heartbeat (60s).
+                    // Strategy 3: passive — wait for user to join the activity manually.
                     async ACHIEVEMENT(q, t) {
                         Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: 0, max: t.target, status: "RUNNING" });
-            
-                        // attempt active heartbeat spoofing
+
                         let chan = null;
                         try {
                             chan = Mods.ChanStore?.getSortedPrivateChannels()?.[0]?.id
                                 ?? Object.values(Mods.GuildChanStore?.getAllGuilds() ?? {}).find(g => g?.VOCAL?.length)?.VOCAL?.[0]?.channel?.id;
                         } catch (e) { Logger.log(`[Achievement] Channel lookup: ${e.message}`, 'debug'); }
-            
-                        if (chan) {
-                            Logger.log(`[Task] Attempting heartbeat spoofing for "${t.name}"...`, 'info');
-                            const key = `call:${chan}:${rnd(1000, 9999)}`;
-                            let cur = 0;
-                            let failCount = 0;
-            
-                            while (cur < t.target && RUNTIME.running) {
-                                try {
-                                    const r = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, { stream_key: key, terminal: false });
-                                    cur = r?.body?.progress?.[t.keyName]?.value ?? r?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? cur;
-                                    Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur, max: t.target, status: "RUNNING" });
-                                    failCount = 0;
-            
-                                    if (cur >= t.target) {
-                                        try { await Traffic.enqueue(`/quests/${q.id}/heartbeat`, { stream_key: key, terminal: true }); }
-                                        catch (_) { }
-                                        break;
-                                    }
-                                } catch (e) {
-                                    failCount++;
-                                    const err = ErrorHandler.classify(e);
-                                    if (err.isClientError) {
-                                        Logger.log(`[Achievement] Heartbeat rejected (HTTP ${err.status}). Falling back to passive mode.`, 'warn');
-                                        break;
-                                    }
-                                    if (failCount >= SYS.MAX_TASK_FAILURES) {
-                                        Logger.log(`[Achievement] Too many failures. Falling back to passive mode.`, 'warn');
-                                        break;
+
+                        // Strategy 1: try multiple stream_key formats
+                        const keysToTry = chan ? [
+                            null,
+                            `activities:${chan}:${rnd(1000, 9999)}`,
+                            `call:${chan}:${rnd(1000, 9999)}`
+                        ] : [];
+
+                        for (const streamKey of keysToTry) {
+                            if (!RUNTIME.running) return;
+                            const body = streamKey ? { stream_key: streamKey, terminal: false } : { terminal: false };
+                            Logger.log(`[Achievement] Trying stream_key format: ${streamKey ?? 'none'}`, 'debug');
+                            try {
+                                const r = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, body);
+                                let cur = r?.body?.progress?.[t.keyName]?.value ?? r?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? 0;
+                                Logger.log(`[Achievement] Heartbeat accepted (format: ${streamKey ?? 'none'}), progress: ${cur}`, 'info');
+                                Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur, max: t.target, status: "RUNNING" });
+
+                                let failCount = 0;
+                                while (cur < t.target && RUNTIME.running) {
+                                    await sleep(rnd(19000, 22000));
+                                    try {
+                                        const r2 = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, body);
+                                        cur = r2?.body?.progress?.[t.keyName]?.value ?? r2?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? cur;
+                                        Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur, max: t.target, status: "RUNNING" });
+                                        failCount = 0;
+                                    } catch (e) {
+                                        const err = ErrorHandler.classify(e);
+                                        if (err.isClientError || ++failCount >= SYS.MAX_TASK_FAILURES) break;
                                     }
                                 }
-                                await sleep(rnd(19000, 22000));
+
+                                if (cur >= t.target && RUNTIME.running) {
+                                    try { await Traffic.enqueue(`/quests/${q.id}/heartbeat`, { ...(streamKey ? { stream_key: streamKey } : {}), terminal: true }); } catch (_) {}
+                                    return Tasks.finish(q, t);
+                                }
+                                break; // format worked but didn't complete — stop trying more formats
+                            } catch (e) {
+                                const err = ErrorHandler.classify(e);
+                                if (err.isClientError) {
+                                    Logger.log(`[Achievement] Format "${streamKey ?? 'none'}" → HTTP ${err.status}, trying next...`, 'debug');
+                                    continue;
+                                }
+                                throw e;
                             }
-            
-                            if (cur >= t.target && RUNTIME.running) return Tasks.finish(q, t);
                         }
-            
-                        // fallback: passive mode — wait for user to complete the activity manually
+
                         if (!RUNTIME.running) return;
+
+                        // Strategy 2: inject app via RPC, wait for Discord's own heartbeat (60s window)
+                        if (t.appId) {
+                            Logger.log(`[Achievement] Trying RPC injection for "${t.name}"...`, 'info');
+                            try {
+                                const gameData = await Tasks.fetchGameData(t.appId, t.name);
+                                const pid = rnd(2500, 12500) * 4;
+                                const game = {
+                                    id: gameData.id, name: gameData.name, icon: gameData.icon,
+                                    pid, pidPath: [pid], processName: gameData.name, start: Date.now(),
+                                    exeName: gameData.exeName, exePath: gameData.exePath, cmdLine: gameData.cmdLine,
+                                    executables: [{ os: 'win32', name: gameData.exeName, is_launcher: false }],
+                                    windowHandle: 0, fullscreenType: 0, overlay: true, sandboxed: false,
+                                    hidden: false, isLauncher: false
+                                };
+                                Patcher.add(game);
+
+                                const achieved = await new Promise(resolve => {
+                                    let done = false;
+                                    const cleanup = () => {
+                                        if (done) return; done = true;
+                                        try { Patcher.remove(game); } catch (_) {}
+                                        try { Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check); } catch (_) {}
+                                        RUNTIME.cleanups.delete(cleanup);
+                                    };
+                                    const timer = setTimeout(() => { cleanup(); resolve(false); }, 60000);
+                                    const check = (d) => {
+                                        if (!RUNTIME.running) { clearTimeout(timer); cleanup(); resolve(false); return; }
+                                        if (d?.questId !== q.id) return;
+                                        const prog = d.userStatus?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? 0;
+                                        Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: prog, max: t.target, status: "RUNNING" });
+                                        if (prog >= t.target) { clearTimeout(timer); cleanup(); resolve(true); }
+                                    };
+                                    Mods.Dispatcher?.subscribe(CONST.EVT.HEARTBEAT, check);
+                                    RUNTIME.cleanups.add(cleanup);
+                                });
+
+                                if (achieved && RUNTIME.running) return Tasks.finish(q, t);
+                            } catch (e) {
+                                Logger.log(`[Achievement] RPC injection failed: ${e.message}`, 'debug');
+                            }
+                        }
+
+                        if (!RUNTIME.running) return;
+
+                        // Strategy 3: passive — wait for user to join the activity manually
                         Logger.log(`[Task] Action required: Join Activity to earn "${t.name}"`, 'warn');
                         Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: 0, max: t.target, status: "RUNNING", actionRequired: true });
-            
+
                         return new Promise(resolve => {
                             let cleaned = false;
                             let safetyTimer;
-            
+
                             const finish = () => {
                                 if (cleaned) return;
                                 cleaned = true;
                                 clearTimeout(safetyTimer);
-                                try { Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check); } catch (e) { }
+                                try { Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check); } catch (_) {}
                                 RUNTIME.cleanups.delete(finish);
                             };
-            
+
                             safetyTimer = setTimeout(() => {
                                 if (RUNTIME.running) Tasks.failTask(q, t, 'Timeout - achievement not earned');
-                                finish();
-                                resolve();
+                                finish(); resolve();
                             }, SYS.MAX_TIME);
-            
+
                             const check = (d) => {
                                 if (!RUNTIME.running) { finish(); resolve(); return; }
                                 if (d?.questId !== q.id) return;
-            
                                 const prog = d.userStatus?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? 0;
                                 Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: prog, max: t.target, status: "RUNNING" });
-            
-                                if (prog >= t.target) {
-                                    finish();
-                                    Tasks.finish(q, t);
-                                    resolve();
-                                }
+                                if (prog >= t.target) { finish(); Tasks.finish(q, t); resolve(); }
                             };
-            
+
                             Mods.Dispatcher?.subscribe(CONST.EVT.HEARTBEAT, check);
                             RUNTIME.cleanups.add(finish);
                         });
@@ -1322,22 +1427,38 @@ module.exports = class OrionQuests {
                             try {
                                 await sleep(rnd(2500, 6000));
                                 if (!RUNTIME.running) return;
-                                // optimistic claim — try without captcha, show button if challenged
+                                // optimistic claim — try without captcha first
                                 const claimRes = await this.claimReward(q.id);
-            
+
                                 if (claimRes?.body?.claimed_at) {
-                                    Logger.log(`[Claim] Reward for "${t.name}" claimed automatically!`, 'success');
+                                    Logger.log(`[Claim] Recompensa de "${t.name}" coletada automaticamente!`, 'success');
                                     Logger.updateTask(q.id, { name: t.name, type: t.type, cur: t.target, max: t.target, status: "CLAIMED" });
-                                    setTimeout(() => Logger.removeTask(q.id), 2000);  // ms before clearing finished tasks
+                                    setTimeout(() => Logger.removeTask(q.id), 2000);
                                     return;
                                 }
                             } catch (e) {
-                                // captcha required or other error — fall through to claim button
                                 const needsCaptcha = e?.body?.captcha_key || e?.body?.captcha_sitekey;
                                 if (needsCaptcha) {
-                                    Logger.log(`[Claim] Captcha required for "${t.name}". Use UI button.`, 'warn');
+                                    Logger.log(`[Claim] Captcha detectado para "${t.name}". Abrindo verificação no Discord...`, 'warn');
+                                    try {
+                                        const captchaToken = await this.getCaptchaToken(
+                                            e.body.captcha_sitekey,
+                                            e.body.captcha_rqdata,
+                                            e.body.captcha_rqtoken
+                                        );
+                                        if (!RUNTIME.running) return;
+                                        const retryRes = await this.claimReward(q.id, captchaToken);
+                                        if (retryRes?.body?.claimed_at) {
+                                            Logger.log(`[Claim] Recompensa de "${t.name}" coletada após captcha!`, 'success');
+                                            Logger.updateTask(q.id, { name: t.name, type: t.type, cur: t.target, max: t.target, status: "CLAIMED" });
+                                            setTimeout(() => Logger.removeTask(q.id), 2000);
+                                            return;
+                                        }
+                                    } catch (captchaErr) {
+                                        Logger.log(`[Claim] Captcha falhou para "${t.name}": ${captchaErr.message}`, 'err');
+                                    }
                                 } else {
-                                    Logger.log(`[Claim] Auto-claim failed for "${t.name}": ${e?.body?.message ?? e?.message}`, 'err');
+                                    Logger.log(`[Claim] Auto-claim falhou para "${t.name}": ${e?.body?.message ?? e?.message}`, 'err');
                                 }
                             }
                         }
@@ -1638,6 +1759,7 @@ module.exports = class OrionQuests {
                                     const tInfo = {
                                         id: q.id,
                                         appId: q.config?.application?.id ?? 0,
+                                        appIcon: q.config?.application?.icon ?? null,
                                         name: q.config?.messages?.questName ?? "Unknown Quest",
                                         target,
                                         type,
@@ -1648,7 +1770,8 @@ module.exports = class OrionQuests {
                                     if (!q.userStatus?.enrolledAt && !RUNTIME.autoEnroll) {
                                         Logger.updateTask(tInfo.id, {
                                             name: tInfo.name, type: tInfo.type, cur: 0, max: tInfo.target,
-                                            status: "PENDING", actionRequired: 'ENROLL'
+                                            status: "PENDING", actionRequired: 'ENROLL',
+                                            appId: tInfo.appId, appIcon: tInfo.appIcon
                                         });
                                         return; // skip execution queue, wait for next cycle
                                     }
@@ -1658,7 +1781,8 @@ module.exports = class OrionQuests {
                                     // clear the action button if user enrolled manually
                                     Logger.updateTask(tInfo.id, {
                                         name: tInfo.name, type: tInfo.type, cur: 0, max: tInfo.target,
-                                        status: "QUEUE", actionRequired: null
+                                        status: "QUEUE", actionRequired: null,
+                                        appId: tInfo.appId, appIcon: tInfo.appIcon
                                     });
             
                                     const taskFunc = async () => {
@@ -1697,8 +1821,8 @@ module.exports = class OrionQuests {
             
                             if (totalTasks > 0) {
                                 Logger.log(`[Cycle] Processing: ${queues.video.length} videos, ${queues.game.length} games.`, 'info');
-                                const pGames = runConcurrent(queues.game, 1);
-                                const pVideos = runConcurrent(queues.video, 1);
+                                const pGames = runConcurrent(queues.game, queues.game.length || 1);
+                                const pVideos = runConcurrent(queues.video, queues.video.length || 1);
                                 await Promise.all([pGames, pVideos]);
                             } else {
                                 if (active.length === 0) { Logger.log('[System] All available quests are completed!', 'success'); break; }
@@ -1768,7 +1892,7 @@ module.exports = class OrionQuests {
     getSettingsPanel() {
         const div = document.createElement('div');
         div.style.cssText = 'padding:16px;color:#fff;font-family:sans-serif;';
-        div.innerHTML = '<b>OrionQuests v4.6.3</b><br><br>' +
+        div.innerHTML = '<b>Dark-moonQuest v1.0.0</b><br><br>' +
             'O plugin aguarda o comando do Discord Manager (http://127.0.0.1:4100).<br><br>' +
             '<span style="color:#faa61a">Modo: controlado pelo servidor</span> — use o botão Start/Stop no app para iniciar as missões.';
         return div;

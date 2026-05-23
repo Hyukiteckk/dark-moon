@@ -14,6 +14,49 @@ import { fetchQuests, runAuto, stopAuto, getAutoStatus, getDebugFetch } from "./
 import { startFakeProcess, stopFakeProcess, getFakeStatus } from "./fakeProcess.js";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
+
+// ── Discord approval bot integration (Cloudflare Worker) ─────────────────────
+const BOT_SERVICE_URL = process.env.BOT_SERVICE_URL || "";
+const BOT_SECRET      = process.env.BOT_SECRET      || "";
+
+async function notifyBotService(username, userId) {
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return;
+  try {
+    await fetch(`${BOT_SERVICE_URL}/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, userId, secret: BOT_SECRET }),
+    });
+  } catch (e) {
+    console.warn("[Auth] Bot service notification failed:", e.message);
+  }
+}
+
+async function syncApprovalsFromWorker() {
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return;
+  try {
+    const res = await fetch(
+      `${BOT_SERVICE_URL}/check-approvals?secret=${encodeURIComponent(BOT_SECRET)}`,
+      { headers: { "Cache-Control": "no-cache" } }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const pending = listPendingUsers();
+    for (const u of pending) {
+      if (data.approved?.includes(u.id)) {
+        approveUser(u.id);
+        console.log(`[Auth] Auto-aprovado via Worker: ${u.username}`);
+      }
+    }
+  } catch (e) {
+    console.warn("[Auth] Worker sync failed:", e.message);
+  }
+}
+
+// Poll a cada 30 segundos para pegar aprovações do Cloudflare Worker
+setInterval(syncApprovalsFromWorker, 30_000);
+syncApprovalsFromWorker();
 const app = express();
 const PORT = Number(process.env.PORT) || 4100;
 const HOST = "127.0.0.1";
@@ -74,12 +117,25 @@ async function getDetectableGames() {
 // Ping for Electron
 app.get("/api/ping", (_req, res) => res.json({ ok: true }));
 
+// Abre a pasta de plugins do BetterDiscord no Explorer
+app.get("/api/open-bd-plugins", requireAuth, async (_req, res) => {
+  try {
+    const { exec } = await import("child_process");
+    const bdPlugins = join(process.env.APPDATA || "", "BetterDiscord", "plugins");
+    exec(`explorer "${bdPlugins}"`);
+    res.json({ ok: true, path: bdPlugins });
+  } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
 // Auth
 app.post("/api/auth/register", (req, res) => {
   const { username, password } = req.body || {};
   const out = registerUser(username, password);
   if (!out.ok) return res.status(400).json({ error: out.error });
-  if (!out.user.approved) return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação." });
+  if (!out.user.approved) {
+    notifyBotService(out.user.username, out.user.id);
+    return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação do administrador." });
+  }
   req.session.userId = out.user.id;
   res.json({ ok: true, user: out.user });
 });
@@ -175,15 +231,24 @@ app.post("/api/identify", requireAuth, async (req, res) => {
 
 app.post("/api/call/join", requireAuth, async (req, res) => {
   try {
-    const { guildId, channelId, tokens } = req.body;
+    const { guildId, channelId, tokens, fakeDeaf = false, selfMute = true } = req.body;
     if (!guildId || !channelId || !Array.isArray(tokens)) return res.status(400).json({ error: "Dados inválidos." });
     const rt = getRuntimeForUser(req.userId);
     const results = [];
     for (const token of tokens) {
-      try { results.push(await rt.joinVoiceWithToken(String(token).trim(), guildId, channelId)); }
+      try { results.push(await rt.joinVoiceWithToken(String(token).trim(), guildId, channelId, { fakeDeaf: !!fakeDeaf, selfMute: selfMute !== false })); }
       catch (e) { results.push({ ok: false, error: e.message, token }); }
     }
     res.json({ ok: true, results });
+  } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+app.post("/api/call/leave", requireAuth, async (req, res) => {
+  try {
+    const { token } = req.body || {};
+    if (!token) return res.status(400).json({ error: "Token obrigatório." });
+    await getRuntimeForUser(req.userId).leaveOneSession(String(token).trim());
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
 });
 
@@ -218,11 +283,11 @@ app.post("/api/purge", requireAuth, async (req, res) => {
 // Nuke
 app.post("/api/nuke/start", requireAuth, (req, res) => {
   try {
-    const { token, channelId, userId, keyword, limit } = req.body || {};
+    const { token, channelId, userId, keyword, limit, ownerDiscordId } = req.body || {};
     if (!token || !channelId) return res.status(400).json({ error: "Token e channelId são obrigatórios." });
     const rt = getRuntimeForUser(req.userId);
     if (rt.getNukeStatus().running) return res.status(409).json({ error: "Um nuke já está em andamento. Pare-o primeiro." });
-    rt.nukeChannel({ token: String(token).trim(), channelId: String(channelId).trim(), userId: userId ? String(userId).trim() : null, keyword: keyword || null, limit: Number(limit) || 0 })
+    rt.nukeChannel({ token: String(token).trim(), channelId: String(channelId).trim(), userId: userId ? String(userId).trim() : null, keyword: keyword || null, limit: Number(limit) || 0, ownerDiscordId: ownerDiscordId || null })
       .catch((e) => console.error("[Nuke]", e.message));
     res.json({ ok: true, message: "Nuke iniciado. Acompanhe nos logs." });
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
@@ -245,6 +310,78 @@ app.post("/api/nuke/dms", requireAuth, async (req, res) => {
     const dms = await getRuntimeForUser(req.userId).listDMChannels(String(token).trim());
     res.json({ dms });
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+app.post('/api/conversations/messages', requireAuth, async (req, res) => {
+  try {
+    const { token, channelId, before, limit } = req.body || {};
+    if (!token || !channelId) return res.status(400).json({ error: 'Token e channelId obrigatórios.' });
+    const messages = await getRuntimeForUser(req.userId).getDMMessages(
+      String(token).trim(), String(channelId).trim(), before || null, Number(limit) || 50
+    );
+    res.json({ messages, hasMore: messages.length === (Number(limit) || 50) });
+  } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+// Stats persistentes por Discord user ID
+app.get("/api/stats", requireAuth, (req, res) => {
+  const discordId = req.query.discordId || null;
+  try { res.json(getRuntimeForUser(req.userId).getStats(discordId)); }
+  catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+// Backup de mensagens
+app.post("/api/backup/start", requireAuth, async (req, res) => {
+  try {
+    const { token, channelId } = req.body || {};
+    if (!token || !channelId) return res.status(400).json({ error: "token e channelId obrigatórios." });
+    await getRuntimeForUser(req.userId).startChannelMonitor(String(token).trim(), String(channelId).trim());
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+app.post("/api/backup/stop", requireAuth, (req, res) => {
+  try {
+    const { channelId } = req.body || {};
+    getRuntimeForUser(req.userId).stopChannelMonitor(String(channelId).trim());
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+app.get("/api/backup/messages/:channelId", requireAuth, (req, res) => {
+  try {
+    const rt = getRuntimeForUser(req.userId);
+    const messages = rt.getBackupMessages(req.params.channelId);
+    res.json({ messages, isMonitoring: rt.isMonitoring(req.params.channelId) });
+  } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+// SSE — eventos de backup em tempo real
+app.get("/api/backup/events", requireAuth, (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const rt = getRuntimeForUser(req.userId);
+  const send = (type, data) => res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+
+  const onNew     = d => send('new',     d);
+  const onDeleted = d => send('deleted', d);
+  const onEdited  = d => send('edited',  d);
+
+  rt.on('backup:new',     onNew);
+  rt.on('backup:deleted', onDeleted);
+  rt.on('backup:edited',  onEdited);
+
+  const hb = setInterval(() => res.write(': ping\n\n'), 20000);
+
+  req.on('close', () => {
+    clearInterval(hb);
+    rt.off('backup:new',     onNew);
+    rt.off('backup:deleted', onDeleted);
+    rt.off('backup:edited',  onEdited);
+  });
 });
 
 // ─── Quest (híbrido: monitor automático + RPC local) ─────────────────────
@@ -342,9 +479,10 @@ app.post("/api/orion/install", requireAuth, (req, res) => {
 // Investigate
 app.post("/api/investigate", requireAuth, async (req, res) => {
   try {
-    const { myToken, targetId } = req.body || {};
+    const { myToken, targetId, additionalTokens } = req.body || {};
     if (!myToken || !targetId) return res.status(400).json({ error: "Token e ID do alvo são obrigatórios." });
-    const result = await getRuntimeForUser(req.userId).investigateUser(myToken, String(targetId).trim());
+    const extraTokens = Array.isArray(additionalTokens) ? additionalTokens.filter(Boolean) : [];
+    const result = await getRuntimeForUser(req.userId).investigateUser(myToken, String(targetId).trim(), extraTokens);
     res.json(result);
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
 });

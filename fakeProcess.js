@@ -9,7 +9,8 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 const __dir = dirname(fileURLToPath(import.meta.url));
-const HELPER_EXE = join(__dir, 'data', 'quest_helper.exe');
+// No app compilado, HELPER_EXE aponta para resources/ (extraResources do electron-builder).
+const HELPER_EXE = process.env.HELPER_EXE || join(__dir, 'data', 'quest_helper.exe');
 
 let _child = null;
 let _fakeExePath = null;

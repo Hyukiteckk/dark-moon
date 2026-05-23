@@ -1,651 +1,1012 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Discord Manager</title>
+  <title>Dark Moon</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
 
-<canvas id="star-canvas"></canvas>
+  <canvas id="star-canvas"></canvas>
 
-<!-- AUTH SCREEN -->
-<div id="auth-screen" class="auth-screen">
-  <div class="auth-box">
-    <div class="auth-logo">
-      <svg width="48" height="48" viewBox="0 0 71 55" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.9a.2.2 0 0 0-.2.1c-.6 1.1-1.3 2.6-1.8 3.7a54.1 54.1 0 0 0-16.2 0 37.4 37.4 0 0 0-1.8-3.7.2.2 0 0 0-.2-.1A58.3 58.3 0 0 0 10.9 4.9a.2.2 0 0 0-.1.1C1.6 18.7-.9 32.1.3 45.3a.2.2 0 0 0 .1.2 58.9 58.9 0 0 0 17.7 8.9.2.2 0 0 0 .2-.1c1.4-1.9 2.6-3.8 3.6-5.9a.2.2 0 0 0-.1-.3 38.8 38.8 0 0 1-5.5-2.6.2.2 0 0 1 0-.3c.4-.3.7-.6 1.1-.9a.2.2 0 0 1 .2 0c11.5 5.2 24 5.2 35.3 0a.2.2 0 0 1 .2 0c.4.3.7.6 1.1.9a.2.2 0 0 1 0 .3 36.2 36.2 0 0 1-5.5 2.6.2.2 0 0 0-.1.3c1.1 2 2.3 4 3.6 5.9a.2.2 0 0 0 .2.1 58.7 58.7 0 0 0 17.8-8.9.2.2 0 0 0 .1-.2c1.5-15.3-2.5-28.6-10.5-40.4a.2.2 0 0 0-.1-.1ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1Z" fill="#4a9eff"/>
-      </svg>
-      <h1>Discord Manager</h1>
+  <!-- AUTH SCREEN -->
+  <div id="auth-screen" class="auth-screen">
+
+    <!-- Left: brand panel -->
+    <div class="auth-brand">
+      <div class="auth-brand-glow"></div>
+      <div class="auth-brand-inner">
+        <svg class="auth-brand-icon" width="110" height="110" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+          <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+        </svg>
+        <h1 class="auth-brand-title">Dark Moon</h1>
+        <div class="auth-brand-divider"></div>
+        <p class="auth-brand-sub">Sistema de automação Discord</p>
+        <div class="auth-brand-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
     </div>
 
-    <div class="auth-tabs">
-      <button class="auth-tab active" data-tab="login">Entrar</button>
-      <button class="auth-tab" data-tab="register">Cadastrar</button>
+    <!-- Right: form panel -->
+    <div class="auth-box">
+      <div class="auth-box-header">
+        <h2>Bem-vindo</h2>
+        <p>Acesse sua conta para continuar</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Entrar</button>
+        <button class="auth-tab" data-tab="register">Cadastrar</button>
+      </div>
+
+      <div id="auth-login" class="auth-form">
+        <div class="field-group">
+          <label>Usuário</label>
+          <input id="login-username" type="text" placeholder="Seu usuário" autocomplete="username" />
+        </div>
+        <div class="field-group">
+          <label>Senha</label>
+          <input id="login-password" type="password" placeholder="Sua senha" autocomplete="current-password" />
+        </div>
+        <div id="login-error" class="auth-error"></div>
+        <button id="btn-login" class="btn-primary w-full">Entrar</button>
+      </div>
+
+      <div id="auth-register" class="auth-form hidden">
+        <div class="field-group">
+          <label>Usuário</label>
+          <input id="reg-username" type="text" placeholder="Escolha um usuário" autocomplete="username" />
+        </div>
+        <div class="field-group">
+          <label>Senha</label>
+          <input id="reg-password" type="password" placeholder="Crie uma senha" autocomplete="new-password" />
+        </div>
+        <div id="register-error" class="auth-error"></div>
+        <div id="register-info" class="auth-info hidden"></div>
+        <button id="btn-register" class="btn-primary w-full">Criar conta</button>
+      </div>
+
+      <p class="auth-footer">Dark Moon &copy; 2025</p>
     </div>
 
-    <div id="auth-login" class="auth-form">
-      <div class="field-group">
-        <label>Usuário</label>
-        <input id="login-username" type="text" placeholder="Seu usuário" autocomplete="username" />
-      </div>
-      <div class="field-group">
-        <label>Senha</label>
-        <input id="login-password" type="password" placeholder="Sua senha" autocomplete="current-password" />
-      </div>
-      <div id="login-error" class="auth-error"></div>
-      <button id="btn-login" class="btn-primary w-full">Entrar</button>
-    </div>
-
-    <div id="auth-register" class="auth-form hidden">
-      <div class="field-group">
-        <label>Usuário</label>
-        <input id="reg-username" type="text" placeholder="Escolha um usuário" autocomplete="username" />
-      </div>
-      <div class="field-group">
-        <label>Senha</label>
-        <input id="reg-password" type="password" placeholder="Crie uma senha" autocomplete="new-password" />
-      </div>
-      <div id="register-error" class="auth-error"></div>
-      <div id="register-info" class="auth-info hidden"></div>
-      <button id="btn-register" class="btn-primary w-full">Criar conta</button>
-    </div>
   </div>
-</div>
 
-<!-- APP SCREEN -->
-<div id="app-screen" class="app-screen hidden">
+  <!-- APP SCREEN -->
+  <div id="app-screen" class="app-screen hidden">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-logo">
-      <svg width="28" height="28" viewBox="0 0 71 55" fill="none">
-        <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.9a.2.2 0 0 0-.2.1c-.6 1.1-1.3 2.6-1.8 3.7a54.1 54.1 0 0 0-16.2 0 37.4 37.4 0 0 0-1.8-3.7.2.2 0 0 0-.2-.1A58.3 58.3 0 0 0 10.9 4.9a.2.2 0 0 0-.1.1C1.6 18.7-.9 32.1.3 45.3a.2.2 0 0 0 .1.2 58.9 58.9 0 0 0 17.7 8.9.2.2 0 0 0 .2-.1c1.4-1.9 2.6-3.8 3.6-5.9a.2.2 0 0 0-.1-.3 38.8 38.8 0 0 1-5.5-2.6.2.2 0 0 1 0-.3c.4-.3.7-.6 1.1-.9a.2.2 0 0 1 .2 0c11.5 5.2 24 5.2 35.3 0a.2.2 0 0 1 .2 0c.4.3.7.6 1.1.9a.2.2 0 0 1 0 .3 36.2 36.2 0 0 1-5.5 2.6.2.2 0 0 0-.1.3c1.1 2 2.3 4 3.6 5.9a.2.2 0 0 0 .2.1 58.7 58.7 0 0 0 17.8-8.9.2.2 0 0 0 .1-.2c1.5-15.3-2.5-28.6-10.5-40.4a.2.2 0 0 0-.1-.1ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 3.9-2.8 7.1-6.4 7.1Z" fill="#4a9eff"/>
-      </svg>
-      <span>DM</span>
-    </div>
-
-    <div class="sidebar-profile">
-      <div class="profile-avatar-wrap">
-        <div id="sb-avatar" class="profile-avatar"></div>
-        <span id="sb-status" class="status-dot online"></span>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+<svg width="28" height="28" viewBox="0 0 1049 1280" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(0.000000,1280.000000) scale(0.100000,-0.100000)" fill="#a855f7" class="svg-lua" stroke="none" style="filter: drop-shadow(0px 0px 8px rgba(168, 85, 247, 0.8));">
+<path d="M6015 12789 c-740 -46 -1469 -219 -2145 -509 -284 -121 -817 -407
+-985 -528 -22 -15 -108 -77 -191 -136 -179 -126 -366 -275 -521 -412 -163
+-144 -375 -344 -398 -375 -11 -15 -63 -74 -115 -131 -1223 -1342 -1815 -3153
+-1624 -4968 153 -1459 796 -2809 1835 -3849 665 -665 1429 -1156 2315 -1486
+406 -151 865 -268 1304 -330 341 -48 510 -59 900 -59 374 -1 519 8 810 45 85
+11 182 23 215 25 33 3 121 19 195 35 707 160 1097 293 1625 554 386 191 672
+366 1000 612 261 196 285 223 237 271 -17 17 -43 20 -233 25 -1742 51 -3386
+839 -4545 2177 -1184 1368 -1717 3206 -1453 5010 218 1494 969 2854 2124 3849
+116 100 115 98 115 132 0 52 -22 59 -186 58 -82 -1 -207 -6 -279 -10z"/>
+          </g>
+        </svg>
+        <span>DM</span>
       </div>
-      <div class="profile-info">
-        <div id="sb-name" class="profile-name">—</div>
-        <div id="sb-role" class="profile-role">owner</div>
-      </div>
-    </div>
 
-    <div class="sidebar-token-section">
-      <div class="sidebar-token-label">Token Global</div>
-      <div class="sidebar-token-row">
-        <input id="global-token" type="password" placeholder="Cole o token aqui" autocomplete="off" />
-        <button id="btn-global-token-save" class="btn-token-save" title="Aplicar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      <div class="sidebar-profile">
+        <div class="profile-avatar-wrap">
+          <div id="sb-avatar" class="profile-avatar"></div>
+          <span id="sb-status" class="status-dot online"></span>
+        </div>
+        <div class="profile-info">
+          <div id="sb-name" class="profile-name">—</div>
+          <div id="sb-role" class="profile-role">owner</div>
+        </div>
+      </div>
+
+      <div class="sidebar-token-section">
+        <div class="sidebar-token-label">Token Global</div>
+        <div class="sidebar-token-row">
+          <input id="global-token" type="password" placeholder="Cole o token aqui" autocomplete="off" />
+          <button id="btn-global-token-save" class="btn-token-save" title="Aplicar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
+        </div>
+        <div id="global-token-info" class="sidebar-token-info hidden">
+          <div id="global-token-avatar" class="sidebar-token-avatar"></div>
+          <div id="global-token-name" class="sidebar-token-name"></div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-tab="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+          Visão Geral
+        </button>
+        <button class="nav-btn" data-tab="call">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path
+              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.45 2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.96a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
+          </svg>
+          Operação de Call
+        </button>
+        <button class="nav-btn" data-tab="fake-call">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+          </svg>
+          Fake Mute
+        </button>
+        <button class="nav-btn" data-tab="clone">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          Clonagem
+        </button>
+        <button class="nav-btn" data-tab="orbs-auto">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          Missões Orbs
+        </button>
+        <button class="nav-btn" data-tab="moderation">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+          </svg>
+          Moderação
+        </button>
+        <button class="nav-btn" data-tab="investigate">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          Investigação
+        </button>
+        <button class="nav-btn" data-tab="nuke">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3,6 5,6 21,6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+          Nuke
+        </button>
+        <button class="nav-btn" data-tab="conversations">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Conversas
+        </button>
+        <button class="nav-btn" data-tab="logs">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+          Logs
+        </button>
+        <button class="nav-btn" data-tab="history">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          Histórico
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="btn-logout" class="nav-btn nav-btn-danger">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16,17 21,12 16,7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          Sair
         </button>
       </div>
-      <div id="global-token-info" class="sidebar-token-info hidden">
-        <div id="global-token-avatar" class="sidebar-token-avatar"></div>
-        <div id="global-token-name" class="sidebar-token-name"></div>
-      </div>
-    </div>
+    </aside>
 
-    <nav class="sidebar-nav">
-      <button class="nav-btn active" data-tab="overview">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Visão Geral
-      </button>
-      <button class="nav-btn" data-tab="call">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.45 2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.96a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
-        Operação de Call
-      </button>
-      <button class="nav-btn" data-tab="clone">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Clonagem
-      </button>
-      <button class="nav-btn" data-tab="orbs-auto">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Missões Orbs
-      </button>
-      <button class="nav-btn" data-tab="moderation">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
-        Moderação
-      </button>
-      <button class="nav-btn" data-tab="investigate">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Investigação
-      </button>
-      <button class="nav-btn" data-tab="nuke">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-        Nuke
-      </button>
-      <button class="nav-btn" data-tab="logs">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        Logs
-      </button>
-      <button class="nav-btn" data-tab="history">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Histórico
-      </button>
-    </nav>
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
 
-    <div class="sidebar-footer">
-      <button id="btn-logout" class="nav-btn nav-btn-danger">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Sair
-      </button>
-    </div>
-  </aside>
-
-  <!-- MAIN CONTENT -->
-  <main class="main-content">
-
-    <!-- TAB: VISÃO GERAL -->
-    <section id="tab-overview" class="tab-section active">
-      <div class="page-header">
-        <h2>Visão Geral</h2>
-        <p class="page-sub">Resumo das operações ativas</p>
-      </div>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.45 2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.96a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
-          <div class="stat-body">
-            <div id="ov-sessions" class="stat-value">0</div>
-            <div class="stat-label">Contas em Call</div>
+      <!-- TAB: VISÃO GERAL -->
+      <section id="tab-overview" class="tab-section active">
+        <div class="page-header">
+          <h2>Visão Geral</h2>
+          <p class="page-sub">Resumo das operações ativas</p>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.45 2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l.96-.96a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
+              </svg></div>
+            <div class="stat-body">
+              <div id="ov-sessions" class="stat-value">0</div>
+              <div class="stat-label">Contas em Call</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg></div>
+            <div class="stat-body">
+              <div id="ov-tokens" class="stat-value">0</div>
+              <div class="stat-label">Tokens Carregados</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3,6 5,6 21,6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+              </svg></div>
+            <div class="stat-body">
+              <div id="ov-purged" class="stat-value">0</div>
+              <div class="stat-label">Msgs Deletadas</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="10,8 16,12 10,16 10,8" />
+              </svg></div>
+            <div class="stat-body">
+              <div id="ov-quests" class="stat-value">0</div>
+              <div class="stat-label">Missões Completas</div>
+            </div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-          <div class="stat-body">
-            <div id="ov-tokens" class="stat-value">0</div>
-            <div class="stat-label">Tokens Carregados</div>
+
+        <div id="ov-account-card" class="section-card hidden">
+          <div class="card-header">
+            <h3>Conta Discord</h3>
           </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
-          <div class="stat-body">
-            <div id="ov-purged" class="stat-value">0</div>
-            <div class="stat-label">Msgs Deletadas</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8"/></svg></div>
-          <div class="stat-body">
-            <div id="ov-quests" class="stat-value">0</div>
-            <div class="stat-label">Missões Completas</div>
-          </div>
-        </div>
-      </div>
-
-      <div id="ov-account-card" class="section-card hidden">
-        <div class="card-header"><h3>Conta Discord</h3></div>
-        <div id="ov-account-profile"></div>
-      </div>
-
-      <div class="section-card">
-        <div class="card-header">
-          <h3>Sessões Ativas</h3>
-          <button id="btn-refresh-status" class="btn-ghost btn-sm">Atualizar</button>
-        </div>
-        <div id="ov-session-list" class="session-list empty-hint">Nenhuma sessão ativa.</div>
-      </div>
-    </section>
-
-    <!-- TAB: OPERAÇÃO DE CALL -->
-    <section id="tab-call" class="tab-section">
-      <div class="page-header">
-        <h2>Operação de Call</h2>
-        <p class="page-sub">Coloque contas em canais de voz via tokens</p>
-      </div>
-
-      <div class="two-col">
-        <div class="section-card">
-          <div class="card-header"><h3>Tokens</h3></div>
-          <label class="field-label">Cole os tokens (um por linha)</label>
-          <textarea id="call-tokens" class="code-area" rows="8" placeholder="Token1&#10;Token2&#10;Token3"></textarea>
-          <button id="btn-identify" class="btn-secondary mt-2">Identificar Contas</button>
-          <div id="identify-results" class="identify-list mt-2"></div>
+          <div id="ov-account-profile"></div>
         </div>
 
         <div class="section-card">
-          <div class="card-header"><h3>Destino</h3></div>
-          <div class="field-group">
-            <label>ID do Servidor</label>
-            <input id="call-guild" type="text" placeholder="000000000000000000" />
+          <div class="card-header">
+            <h3>Sessões Ativas</h3>
+            <button id="btn-refresh-status" class="btn-ghost btn-sm">Atualizar</button>
           </div>
-          <div class="field-group">
-            <label>ID do Canal de Voz</label>
-            <input id="call-channel" type="text" placeholder="000000000000000000" />
-          </div>
-          <div class="btn-row mt-3">
-            <button id="btn-call-join" class="btn-success">Entrar na Call</button>
-            <button id="btn-call-stop" class="btn-danger">Sair de Tudo</button>
-          </div>
-          <div id="call-result" class="result-box mt-2 hidden"></div>
+          <div id="ov-session-list" class="session-list empty-hint">Nenhuma sessão ativa.</div>
         </div>
-      </div>
+      </section>
 
-      <div class="section-card mt-3">
-        <div class="card-header">
-          <h3>Sessões na Call</h3>
-          <button id="btn-call-refresh" class="btn-ghost btn-sm">Atualizar</button>
-        </div>
-        <div id="call-session-list" class="session-list empty-hint">Nenhuma sessão ativa.</div>
-      </div>
-    </section>
-
-    <!-- TAB: CLONAGEM -->
-    <section id="tab-clone" class="tab-section">
-      <div class="page-header">
-        <h2>Clonagem de Servidor</h2>
-        <p class="page-sub">Clone cargos e canais de um servidor para outro</p>
-      </div>
-
-      <div class="two-col">
-        <div class="section-card">
-          <div class="card-header"><h3>Token de Acesso</h3></div>
-          <div class="field-group">
-            <label>Token Discord</label>
-            <input id="clone-token" type="password" placeholder="Token com acesso aos dois servidores" />
-          </div>
-          <button id="btn-clone-load-guilds" class="btn-secondary">Carregar Meus Servidores</button>
+      <!-- TAB: OPERAÇÃO DE CALL -->
+      <section id="tab-call" class="tab-section">
+        <div class="page-header">
+          <h2>Operação de Call</h2>
+          <p class="page-sub">Coloque contas em canais de voz via tokens</p>
         </div>
 
-        <div class="section-card">
-          <div class="card-header"><h3>Configuração</h3></div>
-          <div class="field-group">
-            <label>ID Servidor Origem</label>
-            <input id="clone-source" type="text" placeholder="ID do servidor a copiar" />
-          </div>
-          <div class="field-group">
-            <label>ID Servidor Destino</label>
-            <input id="clone-target" type="text" placeholder="ID do servidor a receber" />
-          </div>
-          <div class="checkbox-row">
-            <label><input id="clone-roles" type="checkbox" checked /> Clonar Cargos</label>
-            <label><input id="clone-channels" type="checkbox" checked /> Clonar Canais</label>
-          </div>
-          <button id="btn-clone-run" class="btn-primary mt-2">Iniciar Clonagem</button>
-          <div id="clone-result" class="result-box mt-2 hidden"></div>
-        </div>
-      </div>
-
-      <div class="section-card mt-3">
-        <div class="card-header"><h3>Servidores Disponíveis</h3><span class="card-hint">Clique para usar como Origem ou Destino</span></div>
-        <div id="clone-guild-list" class="guild-grid empty-hint">Nenhum servidor carregado.</div>
-      </div>
-    </section>
-
-    <!-- TAB: MISSÕES ORBS -->
-    <section id="tab-orbs-auto" class="tab-section">
-      <div class="page-header">
-        <h2>Missões Orbs</h2>
-        <p class="page-sub">Missões concluídas automaticamente pelo Discord Desktop</p>
-      </div>
-
-      <div class="two-col">
-
-        <!-- COLUNA ESQUERDA: Configuração -->
-        <div>
+        <div class="two-col">
           <div class="section-card">
-            <div class="card-header"><h3>Configuração</h3></div>
+            <div class="card-header">
+              <h3>Tokens</h3>
+            </div>
+            <label class="field-label">Cole os tokens (um por linha)</label>
+            <textarea id="call-tokens" class="code-area" rows="8" placeholder="Token1&#10;Token2&#10;Token3"></textarea>
+            <button id="btn-identify" class="btn-secondary mt-2">Identificar Contas</button>
+            <div id="identify-results" class="identify-list mt-2"></div>
+          </div>
 
-            <!-- Status do plugin BetterDiscord -->
-            <div id="inject-status-card" style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
-              <span id="inject-status-icon" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:24px;height:24px">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </span>
-              <div style="flex:1;min-width:0">
-                <div id="inject-status-title" style="font-size:.85rem;font-weight:700;color:var(--text)">Verificando...</div>
-                <div id="inject-status-desc" style="font-size:.75rem;color:var(--text-muted);line-height:1.4;margin-top:2px"></div>
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Destino</h3>
+            </div>
+            <div class="field-group">
+              <label>ID do Servidor</label>
+              <input id="call-guild" type="text" placeholder="000000000000000000" />
+            </div>
+            <div class="field-group">
+              <label>ID do Canal de Voz</label>
+              <input id="call-channel" type="text" placeholder="000000000000000000" />
+            </div>
+            <div class="field-group" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:4px">
+              <input type="checkbox" id="call-fake-deaf" style="width:auto;margin:0" />
+              <label for="call-fake-deaf" style="margin:0;cursor:pointer">Fake Deaf <span style="color:var(--text-muted);font-size:.8rem">(aparece surdo, ouve tudo)</span></label>
+            </div>
+            <div class="btn-row mt-3">
+              <button id="btn-call-join" class="btn-success">Entrar na Call</button>
+              <button id="btn-call-stop" class="btn-danger">Sair de Tudo</button>
+            </div>
+            <div id="call-result" class="result-box mt-2 hidden"></div>
+          </div>
+        </div>
+
+        <div class="section-card mt-3">
+          <div class="card-header">
+            <h3>Sessões na Call</h3>
+            <button id="btn-call-refresh" class="btn-ghost btn-sm">Atualizar</button>
+          </div>
+          <div id="call-session-list" class="session-list empty-hint">Nenhuma sessão ativa.</div>
+        </div>
+      </section>
+
+      <!-- TAB: FAKE MUTE -->
+      <section id="tab-fake-call" class="tab-section">
+        <div class="page-header">
+          <h2>Fake Mute</h2>
+          <p class="page-sub">Apareça mutado/surdo enquanto continua ouvindo tudo na call</p>
+        </div>
+
+        <!-- Plugin banner -->
+        <div class="plugin-banner mb-3">
+          <div class="plugin-banner-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          <div class="plugin-banner-info">
+            <div class="plugin-banner-name">
+              SpyMode
+              <span class="badge-version">v11.0</span>
+              <span class="badge-platform">BetterDiscord</span>
+            </div>
+            <div class="plugin-banner-desc">Plugin para monitoramento silencioso de calls do Discord</div>
+          </div>
+          <div class="plugin-banner-actions">
+            <a href="/SpyMode.plugin.js" download="SpyMode.plugin.js" class="btn-primary btn-sm" style="text-decoration:none;display:flex;align-items:center;gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Baixar Plugin
+            </a>
+            <button id="btn-open-fc-plugins" class="btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Abrir Pasta
+            </button>
+          </div>
+        </div>
+        <div id="fc-plugin-result" class="result-box hidden mb-3"></div>
+
+        <!-- Modo cards -->
+        <div class="mode-grid mb-3">
+          <div class="mode-card mode-card-highlight">
+            <div class="mode-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </div>
+            <div class="mode-card-name">Modo Espião</div>
+            <div class="mode-card-desc">Mute + surdo simultâneos. Você continua ouvindo tudo normalmente.</div>
+          </div>
+          <div class="mode-card">
+            <div class="mode-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </div>
+            <div class="mode-card-name">Mutado</div>
+            <div class="mode-card-desc">Aparece mutado para os outros. Você continua ouvindo tudo.</div>
+          </div>
+          <div class="mode-card">
+            <div class="mode-card-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </div>
+            <div class="mode-card-name">Surdo</div>
+            <div class="mode-card-desc">Aparece surdo e mutado. Você continua ouvindo tudo normalmente.</div>
+          </div>
+        </div>
+
+        <!-- Como usar -->
+        <div class="section-card">
+          <div class="card-header"><h3>Como usar</h3></div>
+          <div class="step-list">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div>
+                <div class="step-title">Instale o BetterDiscord</div>
+                <div class="step-desc">Baixe e instale o BetterDiscord em <span class="code-path">betterdiscord.app</span> se ainda não tiver.</div>
               </div>
             </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div>
+                <div class="step-title">Baixe e instale o plugin</div>
+                <div class="step-desc">Clique em "Baixar Plugin" acima e coloque o arquivo na pasta:<br><span class="code-path">%AppData%\BetterDiscord\plugins</span></div>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">3</div>
+              <div>
+                <div class="step-title">Ative o plugin no Discord</div>
+                <div class="step-desc">Abra o Discord → Configurações → Plugins → ative <strong style="color:var(--purple)">SpyMode</strong>.</div>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">4</div>
+              <div>
+                <div class="step-title">Use o painel flutuante</div>
+                <div class="step-desc">Entre em qualquer call. Um painel flutuante aparecerá na tela — use-o para ativar Modo Espião, Mutado ou Surdo.</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <button id="btn-discord-inject" class="btn-success" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;font-size:.85rem;font-weight:700;padding:9px 0;margin-bottom:10px">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </section>
+
+      <!-- TAB: CLONAGEM -->
+      <section id="tab-clone" class="tab-section">
+        <div class="page-header">
+          <h2>Clonagem de Servidor</h2>
+          <p class="page-sub">Clone cargos e canais de um servidor para outro</p>
+        </div>
+
+        <div class="two-col">
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Token de Acesso</h3>
+            </div>
+            <div class="field-group">
+              <label>Token Discord</label>
+              <input id="clone-token" type="password" placeholder="Token com acesso aos dois servidores" />
+            </div>
+            <button id="btn-clone-load-guilds" class="btn-secondary mt-2">Carregar Meus Servidores</button>
+          </div>
+
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Configuração</h3>
+            </div>
+            <div class="field-group">
+              <label>ID Servidor Origem</label>
+              <input id="clone-source" type="text" placeholder="ID do servidor a copiar" />
+            </div>
+            <div class="field-group">
+              <label>ID Servidor Destino</label>
+              <input id="clone-target" type="text" placeholder="ID do servidor a receber" />
+            </div>
+            <div class="checkbox-row">
+              <label><input id="clone-roles" type="checkbox" checked /> Clonar Cargos</label>
+              <label><input id="clone-channels" type="checkbox" checked /> Clonar Canais</label>
+            </div>
+            <button id="btn-clone-run" class="btn-primary mt-2">Iniciar Clonagem</button>
+            <div id="clone-result" class="result-box mt-2 hidden"></div>
+          </div>
+        </div>
+
+        <div class="section-card mt-3">
+          <div class="card-header">
+            <h3>Servidores Disponíveis</h3><span class="card-hint">Clique para usar como Origem ou Destino</span>
+          </div>
+          <div id="clone-guild-list" class="guild-grid empty-hint">Nenhum servidor carregado.</div>
+        </div>
+      </section>
+
+      <!-- TAB: MISSÕES ORBS -->
+      <section id="tab-orbs-auto" class="tab-section">
+        <div class="page-header">
+          <h2>Missões Orbs</h2>
+          <p class="page-sub">Missões concluídas automaticamente pelo Discord Desktop</p>
+        </div>
+
+        <div class="two-col">
+
+          <!-- COLUNA ESQUERDA: Setup -->
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Setup</h3>
+              <span class="badge-platform" style="font-size:.65rem;padding:2px 8px;border-radius:6px">BetterDiscord</span>
+            </div>
+
+            <!-- Status do plugin -->
+            <div id="inject-status-card" class="setup-status">
+              <div id="inject-status-dot" class="setup-status-dot"></div>
+              <div class="setup-status-info">
+                <div id="inject-status-title" class="setup-status-title">Verificando...</div>
+                <div id="inject-status-desc" class="setup-status-desc"></div>
+              </div>
+              <span id="inject-status-icon" style="display:none"></span>
+            </div>
+
+            <button id="btn-discord-inject" class="btn-success w-full mb-2" style="display:flex;align-items:center;justify-content:center;gap:7px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
               Instalar plugin no BetterDiscord
             </button>
-            <div id="inject-result" class="result-box hidden" style="margin-bottom:10px"></div>
+            <div id="inject-result" class="result-box hidden mb-2"></div>
 
-            <div style="background:var(--bg3);border-left:3px solid #5865F2;border-radius:0 6px 6px 0;padding:9px 12px;font-size:.75rem;color:var(--text-muted);line-height:1.6">
-              <strong style="color:var(--text)">Pré-requisito:</strong> instale o <strong style="color:var(--text)">BetterDiscord</strong> em <span style="color:#5865F2">betterdiscord.app</span>. Depois clique em Instalar — o plugin é copiado e ativado automaticamente no Discord.
+            <div class="btn-row mb-3">
+              <a href="/OrionQuests.plugin.js" download="OrionQuests.plugin.js" class="btn-secondary btn-sm" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Baixar Plugin
+              </a>
+              <button id="btn-open-bd-plugins" class="btn-ghost btn-sm" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                Abrir Pasta
+              </button>
             </div>
 
-            <div style="height:1px;background:var(--border);margin:14px 0"></div>
-
-            <div style="font-size:.72rem;color:var(--text-muted);line-height:1.5">
-              <strong style="color:var(--text)">Privacidade de Atividade</strong> deve estar <strong style="color:#3BA55C">ligada</strong> em Discord → Configurações → Privacidade de Atividade.
+            <div class="note-box mb-2">
+              <strong>Pré-requisito:</strong> instale o <strong>BetterDiscord</strong> — depois clique em <strong>Instalar</strong> para copiar o plugin automaticamente.
+            </div>
+            <div class="note-box">
+              <strong>Privacidade de Atividade</strong> deve estar <strong style="color:var(--green)">ligada</strong> em Configurações → Privacidade de Atividade.
             </div>
           </div>
-        </div>
 
-        <!-- COLUNA DIREITA: Controle + Progresso -->
-        <div>
+          <!-- COLUNA DIREITA: Controle + Progresso -->
+          <div style="display:flex;flex-direction:column;gap:14px">
 
-          <!-- Controle -->
-          <div class="section-card" style="margin-bottom:12px">
-            <div class="card-header">
-              <h3>Controle</h3>
-              <span id="orion-ctrl-badge" class="status-badge status-off">Parado</span>
-            </div>
+            <!-- Controle -->
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Controle</h3>
+                <span id="orion-ctrl-badge" class="status-badge status-off">Parado</span>
+              </div>
 
-            <div style="display:flex;gap:8px;margin-bottom:10px">
-              <button id="btn-orion-start" class="btn-success" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:.88rem;font-weight:700;padding:10px 0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polygon points="5,3 19,12 5,21 5,3"/></svg>
-                Iniciar Missões
-              </button>
-              <button id="btn-orion-stop" class="btn-danger" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:.88rem;font-weight:700;padding:10px 0" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="6" y="6" width="12" height="12"/></svg>
-                Parar
-              </button>
-            </div>
-            <div id="orion-ctrl-result" class="result-box hidden"></div>
+              <div class="btn-row mb-2">
+                <button id="btn-orion-start" class="btn-success" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+                  Iniciar Missões
+                </button>
+                <button id="btn-orion-stop" class="btn-danger" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="6" y="6" width="12" height="12"/></svg>
+                  Parar
+                </button>
+              </div>
+              <div id="orion-ctrl-result" class="result-box hidden"></div>
 
-            <!-- Resumo rápido -->
-            <div id="orion-summary" style="display:none;margin-top:10px;display:none">
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
-                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-                  <div id="orion-sum-total" style="font-size:1.2rem;font-weight:800;color:var(--text)">0</div>
-                  <div style="font-size:.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Encontradas</div>
-                </div>
-                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-                  <div id="orion-sum-done" style="font-size:1.2rem;font-weight:800;color:#3BA55C">0</div>
-                  <div style="font-size:.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Concluídas</div>
-                </div>
-                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 4px">
-                  <div id="orion-sum-active" style="font-size:1.2rem;font-weight:800;color:#5865F2">0</div>
-                  <div style="font-size:.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Em andamento</div>
+              <div id="orion-summary" class="hidden">
+                <div class="orbs-summary-grid">
+                  <div class="orbs-stat">
+                    <div id="orion-sum-total" class="orbs-stat-val">0</div>
+                    <div class="orbs-stat-lbl">Encontradas</div>
+                  </div>
+                  <div class="orbs-stat">
+                    <div id="orion-sum-done" class="orbs-stat-val green">0</div>
+                    <div class="orbs-stat-lbl">Concluídas</div>
+                  </div>
+                  <div class="orbs-stat">
+                    <div id="orion-sum-active" class="orbs-stat-val purple">0</div>
+                    <div class="orbs-stat-lbl">Em andamento</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Progresso em tempo real -->
-          <div class="section-card">
-            <div class="card-header">
-              <h3>Progresso</h3>
-              <span id="orion-live-badge" class="status-badge status-off">Aguardando</span>
-            </div>
+            <!-- Progresso em tempo real -->
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Progresso</h3>
+                <span id="orion-live-badge" class="status-badge status-off">Aguardando</span>
+              </div>
 
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:7px">
-              <span style="font-size:.75rem;color:var(--text-muted)">Bridge Discord</span>
-              <span id="orion-bridge-badge" class="status-badge status-off" style="font-size:.7rem;padding:2px 8px">Não detectada</span>
-            </div>
+              <div class="info-row mb-2">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" width="14" height="14"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                  <span style="font-size:.78rem;color:var(--text-muted)">Bridge Discord</span>
+                </div>
+                <span id="orion-bridge-badge" class="status-badge status-off" style="font-size:.68rem;padding:2px 8px">Não detectada</span>
+              </div>
 
-            <div id="orion-live-hint" style="font-size:.78rem;color:var(--text-muted);padding:4px 0">Aguardando o Discord iniciar o script...</div>
-            <div id="orion-live-tasks" style="display:flex;flex-direction:column;gap:8px"></div>
+              <div id="orion-live-hint" style="font-size:.78rem;color:var(--text-muted);padding:4px 0 6px">Aguardando o Discord iniciar o script...</div>
+              <div id="orion-live-tasks" style="display:flex;flex-direction:column;gap:8px"></div>
 
-            <div id="orion-live-done" style="display:none;background:rgba(59,165,92,.1);border:1px solid rgba(59,165,92,.3);border-radius:8px;padding:12px;display:none;align-items:center;gap:10px">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#3BA55C" stroke-width="2.5" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>
-              <div>
-                <div style="font-size:.88rem;font-weight:700;color:#3BA55C">Todas as missões concluídas!</div>
-                <div id="orion-done-time" style="font-size:.72rem;color:var(--text-muted);margin-top:2px"></div>
+              <div id="orion-live-done" class="hidden" style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.22);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:.9rem;font-weight:700;color:var(--green)">Todas as missões concluídas!</div>
+                  <div id="orion-done-time" style="font-size:.74rem;color:var(--text-muted);margin-top:3px"></div>
+                </div>
               </div>
             </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: MODERAÇÃO -->
+      <section id="tab-moderation" class="tab-section">
+        <div class="page-header">
+          <h2>Moderação</h2>
+          <p class="page-sub">Gerencie membros e servidores com permissão</p>
+        </div>
+
+        <div class="two-col">
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Token de Moderação</h3>
+            </div>
+            <div class="field-group">
+              <label>Token Discord</label>
+              <div class="input-icon-wrap">
+                <input id="mod-token" type="password" placeholder="Token com permissões" />
+                <button class="btn-toggle-pw" data-target="mod-token" title="Mostrar/ocultar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button id="btn-mod-load-guilds" class="btn-secondary mt-2">Carregar Servidores</button>
           </div>
 
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB: MODERAÇÃO -->
-    <section id="tab-moderation" class="tab-section">
-      <div class="page-header">
-        <h2>Moderação</h2>
-        <p class="page-sub">Gerencie membros e servidores com permissão</p>
-      </div>
-
-      <div class="two-col">
-        <div class="section-card">
-          <div class="card-header"><h3>Token de Moderação</h3></div>
-          <div class="field-group">
-            <label>Token Discord</label>
-            <div class="input-icon-wrap">
-              <input id="mod-token" type="password" placeholder="Token com permissões" />
-              <button class="btn-toggle-pw" data-target="mod-token" title="Mostrar/ocultar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Ações em Massa</h3>
+            </div>
+            <div id="mod-selected-count" class="selected-count">0 membros selecionados</div>
+            <div class="action-grid">
+              <button class="action-btn" data-action="mute">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+                Mutar
+              </button>
+              <button class="action-btn" data-action="unmute">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+                Desmutar
+              </button>
+              <button class="action-btn" data-action="deafen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                </svg>
+                Ensurdecer
+              </button>
+              <button class="action-btn" data-action="undeafen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12,6 12,12 16,14" />
+                </svg>
+                Desensurdecer
+              </button>
+              <button class="action-btn action-warn" data-action="kick">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16,17 21,12 16,7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Kickar
+              </button>
+              <button class="action-btn action-danger" data-action="ban">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Banir
               </button>
             </div>
-          </div>
-          <button id="btn-mod-load-guilds" class="btn-secondary">Carregar Servidores</button>
-        </div>
-
-        <div class="section-card">
-          <div class="card-header"><h3>Ações em Massa</h3></div>
-          <div id="mod-selected-count" class="selected-count">0 membros selecionados</div>
-          <div class="action-grid">
-            <button class="action-btn" data-action="mute">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              Mutar
-            </button>
-            <button class="action-btn" data-action="unmute">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              Desmutar
-            </button>
-            <button class="action-btn" data-action="deafen">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-              Ensurdecer
-            </button>
-            <button class="action-btn" data-action="undeafen">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-              Desensurdecer
-            </button>
-            <button class="action-btn action-warn" data-action="kick">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              Kickar
-            </button>
-            <button class="action-btn action-danger" data-action="ban">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Banir
-            </button>
-          </div>
-          <div id="mod-action-result" class="result-box mt-2 hidden"></div>
-        </div>
-      </div>
-
-      <div class="section-card mt-3">
-        <div class="card-header">
-          <h3>Servidores</h3>
-        </div>
-        <div id="mod-guild-list" class="guild-grid empty-hint">Nenhum servidor carregado.</div>
-      </div>
-
-      <div id="mod-snapshot-wrap" class="section-card mt-3 hidden">
-        <div class="card-header">
-          <div>
-            <h3 id="mod-snapshot-title">Membros</h3>
-            <div id="mod-snapshot-sub" class="page-sub"></div>
-          </div>
-          <div class="btn-row">
-            <input id="mod-search" type="text" placeholder="Buscar membro..." class="input-sm" />
-            <button id="btn-select-all" class="btn-ghost btn-sm">Selecionar Todos</button>
-            <button id="btn-deselect-all" class="btn-ghost btn-sm">Limpar</button>
-          </div>
-        </div>
-        <div id="mod-member-list" class="member-grid"></div>
-      </div>
-    </section>
-
-    <!-- TAB: INVESTIGAÇÃO -->
-    <section id="tab-investigate" class="tab-section">
-      <div class="page-header">
-        <h2>Investigação</h2>
-        <p class="page-sub">Investigue qualquer conta do Discord pelo ID</p>
-      </div>
-
-      <div class="section-card">
-        <div class="card-header"><h3>Alvo</h3></div>
-        <div class="field-group">
-          <label>ID do Usuário Discord</label>
-          <div class="btn-row">
-            <input id="inv-target-id" type="text" placeholder="000000000000000000" style="max-width:280px" />
-            <button id="btn-investigate" class="btn-primary">Investigar</button>
-          </div>
-        </div>
-        <div id="inv-result" class="result-box mt-2 hidden"></div>
-        <div id="inv-avatar-download-wrap" class="hidden" style="margin-top:8px">
-          <a id="btn-download-avatar" class="btn-ghost btn-sm" download="avatar.png">Baixar Foto de Perfil</a>
-        </div>
-      </div>
-
-      <div id="inv-report" class="hidden">
-
-        <div class="two-col mt-3">
-          <div class="section-card">
-            <div class="card-header"><h3>Perfil Completo</h3><span id="inv-scan-count" class="card-hint"></span></div>
-            <div id="inv-profile"></div>
-            <div id="inv-extra-details" style="margin-top:12px"></div>
-          </div>
-          <div class="section-card">
-            <div class="card-header"><h3>Análise de Alt/Risco</h3></div>
-            <div id="inv-alt-analysis"></div>
-          </div>
-        </div>
-
-        <div class="two-col mt-3">
-          <div class="section-card">
-            <div class="card-header"><h3>Servidores em Comum</h3></div>
-            <div id="inv-mutual-guilds"></div>
-          </div>
-          <div class="section-card">
-            <div class="card-header"><h3>Amigos em Comum</h3></div>
-            <div id="inv-mutual-friends"></div>
-          </div>
-        </div>
-
-        <div class="two-col mt-3">
-          <div class="section-card">
-            <div class="card-header"><h3>Nicks nos Servidores</h3><span class="card-hint">Todos os servidores escaneados</span></div>
-            <div id="inv-nicknames"></div>
-          </div>
-          <div class="section-card">
-            <div class="card-header"><h3>Conexões Públicas</h3></div>
-            <div id="inv-connections"></div>
+            <div id="mod-action-result" class="result-box mt-2 hidden"></div>
           </div>
         </div>
 
         <div class="section-card mt-3">
-          <div class="card-header"><h3>Todos os Nicks Únicos Usados</h3><span class="card-hint">Agrupados por valor — inclui histórico global</span></div>
-          <div id="inv-unique-nicks" class="empty-hint">Nenhum nick encontrado.</div>
+          <div class="card-header">
+            <h3>Servidores</h3>
+          </div>
+          <div id="mod-guild-list" class="guild-grid empty-hint">Nenhum servidor carregado.</div>
+        </div>
+
+        <div id="mod-snapshot-wrap" class="section-card mt-3 hidden">
+          <div class="card-header">
+            <div>
+              <h3 id="mod-snapshot-title">Membros</h3>
+              <div id="mod-snapshot-sub" class="page-sub"></div>
+            </div>
+            <div class="btn-row">
+              <input id="mod-search" type="text" placeholder="Buscar membro..." class="input-sm" />
+              <button id="btn-select-all" class="btn-ghost btn-sm">Selecionar Todos</button>
+              <button id="btn-deselect-all" class="btn-ghost btn-sm">Limpar</button>
+            </div>
+          </div>
+          <div id="mod-member-list" class="member-grid"></div>
+        </div>
+      </section>
+
+      <!-- TAB: INVESTIGAÇÃO -->
+      <section id="tab-investigate" class="tab-section">
+        <div class="page-header">
+          <h2>Investigação</h2>
+          <p class="page-sub">Investigue qualquer conta do Discord pelo ID</p>
+        </div>
+
+        <div class="section-card">
+          <div class="card-header">
+            <h3>Alvo</h3>
+          </div>
+          <div class="field-group">
+            <label>ID do Usuário Discord</label>
+            <div class="btn-row">
+              <input id="inv-target-id" type="text" placeholder="000000000000000000" style="max-width:280px" />
+              <button id="btn-investigate" class="btn-primary">Investigar</button>
+            </div>
+          </div>
+          <div class="field-group mt-2">
+            <label>Tokens Adicionais <span class="card-hint">(opcional — um por linha; ampliam a cobertura de servidores)</span></label>
+            <textarea id="inv-extra-tokens" rows="3" placeholder="Token1&#10;Token2&#10;Token3" style="width:100%;font-size:.8rem;font-family:monospace;resize:vertical"></textarea>
+          </div>
+          <div id="inv-result" class="result-box mt-2 hidden"></div>
+          <div id="inv-avatar-download-wrap" class="hidden" style="margin-top:8px">
+            <a id="btn-download-avatar" class="btn-ghost btn-sm" download="avatar.png">Baixar Foto de Perfil</a>
+          </div>
+        </div>
+
+        <div id="inv-report" class="hidden">
+
+          <div class="two-col mt-3">
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Perfil Completo</h3><span id="inv-scan-count" class="card-hint"></span>
+              </div>
+              <div id="inv-profile"></div>
+              <div id="inv-extra-details" style="margin-top:12px"></div>
+            </div>
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Análise de Alt/Risco</h3>
+              </div>
+              <div id="inv-alt-analysis"></div>
+            </div>
+          </div>
+
+          <div class="two-col mt-3">
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Servidores Encontrados</h3><span id="inv-guilds-hint" class="card-hint"></span>
+              </div>
+              <div id="inv-mutual-guilds"></div>
+            </div>
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Amigos em Comum</h3>
+              </div>
+              <div id="inv-mutual-friends"></div>
+            </div>
+          </div>
+
+          <div class="two-col mt-3">
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Nicks nos Servidores</h3><span class="card-hint">Todos os servidores escaneados</span>
+              </div>
+              <div id="inv-nicknames"></div>
+            </div>
+            <div class="section-card">
+              <div class="card-header">
+                <h3>Conexões Públicas</h3>
+              </div>
+              <div id="inv-connections"></div>
+            </div>
+          </div>
+
+          <div class="section-card mt-3">
+            <div class="card-header">
+              <h3>Todos os Nicks Únicos Usados</h3><span class="card-hint">Agrupados por valor — inclui histórico
+                global</span>
+            </div>
+            <div id="inv-unique-nicks" class="empty-hint">Nenhum nick encontrado.</div>
+          </div>
+
+          <div class="section-card mt-3">
+            <div class="card-header">
+              <h3>Histórico de Nicks</h3><span class="card-hint">Nicks vistos em investigações anteriores</span>
+            </div>
+            <div id="inv-nicks-history" class="empty-hint">Nenhum histórico registrado.</div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB: NUKE -->
+      <section id="tab-nuke" class="tab-section">
+        <div class="page-header">
+          <h2>Nuke de Mensagens</h2>
+          <p class="page-sub">Apague mensagens em servidores ou conversas privadas (DMs)</p>
+        </div>
+
+        <div class="two-col">
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Token e Canal</h3>
+            </div>
+            <div class="field-group">
+              <label>Token Discord</label>
+              <div class="input-icon-wrap">
+                <input id="nuke-token" type="password" placeholder="Token da conta" autocomplete="off" />
+                <button class="btn-toggle-pw" data-target="nuke-token" title="Mostrar/ocultar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="field-group">
+              <label>ID do Canal (servidor ou DM)</label>
+              <input id="nuke-channel-id" type="text" placeholder="ID do canal de texto ou DM" />
+            </div>
+            <div class="field-group">
+              <label>Filtrar por ID de Usuário <span style="color:var(--text-muted)">(opcional)</span></label>
+              <input id="nuke-user-id" type="text" placeholder="Apaga apenas msgs deste usuário" />
+            </div>
+            <div class="field-group">
+              <label>Filtrar por Palavra-chave <span style="color:var(--text-muted)">(opcional)</span></label>
+              <input id="nuke-keyword" type="text" placeholder="Apaga apenas msgs contendo este texto" />
+            </div>
+            <div class="field-group">
+              <label>Limite de mensagens <span style="color:var(--text-muted)">(0 = ilimitado)</span></label>
+              <input id="nuke-limit" type="number" min="0" value="0" />
+            </div>
+            <div class="btn-row mt-2">
+              <button id="btn-nuke-start" class="btn-success">Iniciar Nuke</button>
+              <button id="btn-nuke-stop" class="btn-danger btn-sm" disabled>Parar</button>
+            </div>
+            <div id="nuke-result" class="result-box mt-2 hidden"></div>
+          </div>
+
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Status do Nuke</h3>
+            </div>
+            <div id="nuke-status-display" style="font-size:.85rem;color:var(--text-muted)">Nuke inativo.</div>
+            <div id="nuke-progress" class="hidden" style="margin-top:12px">
+              <div class="nuke-stat-row"><span>Apagadas:</span> <strong id="nuke-stat-deleted">0</strong></div>
+              <div class="nuke-stat-row"><span>Escaneadas:</span> <strong id="nuke-stat-scanned">0</strong></div>
+              <div class="nuke-stat-row"><span>Falhas:</span> <strong id="nuke-stat-failed">0</strong></div>
+            </div>
+          </div>
         </div>
 
         <div class="section-card mt-3">
-          <div class="card-header"><h3>Histórico de Nicks</h3><span class="card-hint">Nicks vistos em investigações anteriores</span></div>
-          <div id="inv-nicks-history" class="empty-hint">Nenhum histórico registrado.</div>
+          <div class="card-header">
+            <h3>Conversas Privadas (DMs)</h3>
+            <button id="btn-nuke-load-dms" class="btn-secondary btn-sm">Carregar DMs</button>
+          </div>
+          <p style="color:var(--text-muted);font-size:.8rem;margin-bottom:8px">Clique em "Usar" para colocar o ID do
+            canal no campo acima.</p>
+          <div id="nuke-dm-list" class="empty-hint">Clique em "Carregar DMs" para listar suas conversas privadas.</div>
+        </div>
+      </section>
+
+      <!-- TAB: CONVERSAS -->
+      <section id="tab-conversations" class="tab-section">
+        <div class="page-header">
+          <h2>Conversas</h2>
+          <p class="page-sub">Visualize e exporte mensagens de DMs, incluindo arquivos, imagens e áudios</p>
         </div>
 
-      </div>
-    </section>
-
-    <!-- TAB: NUKE -->
-    <section id="tab-nuke" class="tab-section">
-      <div class="page-header">
-        <h2>Nuke de Mensagens</h2>
-        <p class="page-sub">Apague mensagens em servidores ou conversas privadas (DMs)</p>
-      </div>
-
-      <div class="two-col">
-        <div class="section-card">
-          <div class="card-header"><h3>Token e Canal</h3></div>
-          <div class="field-group">
-            <label>Token Discord</label>
-            <div class="input-icon-wrap">
-              <input id="nuke-token" type="password" placeholder="Token da conta" autocomplete="off" />
-              <button class="btn-toggle-pw" data-target="nuke-token" title="Mostrar/ocultar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+        <div style="display:flex;gap:16px;height:calc(100vh - 160px);min-height:500px">
+          <!-- DM list sidebar -->
+          <div class="section-card" style="width:280px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header">
+              <h3>Conversas</h3>
+              <button id="btn-conv-load-dms" class="btn-ghost btn-sm">Carregar</button>
+            </div>
+            <div class="field-group" style="padding:0 0 10px">
+              <div class="input-icon-wrap">
+                <input id="conv-token" type="password" placeholder="Token Discord" autocomplete="off" />
+                <button class="btn-toggle-pw" data-target="conv-token" title="Mostrar/ocultar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div id="conv-dm-list" class="empty-hint" style="flex:1;overflow-y:auto;font-size:.82rem">
+              Insira um token e clique em Carregar.
             </div>
           </div>
-          <div class="field-group">
-            <label>ID do Canal (servidor ou DM)</label>
-            <input id="nuke-channel-id" type="text" placeholder="ID do canal de texto ou DM" />
-          </div>
-          <div class="field-group">
-            <label>Filtrar por ID de Usuário <span style="color:var(--text-muted)">(opcional)</span></label>
-            <input id="nuke-user-id" type="text" placeholder="Apaga apenas msgs deste usuário" />
-          </div>
-          <div class="field-group">
-            <label>Filtrar por Palavra-chave <span style="color:var(--text-muted)">(opcional)</span></label>
-            <input id="nuke-keyword" type="text" placeholder="Apaga apenas msgs contendo este texto" />
-          </div>
-          <div class="field-group">
-            <label>Limite de mensagens <span style="color:var(--text-muted)">(0 = ilimitado)</span></label>
-            <input id="nuke-limit" type="number" min="0" value="0" />
-          </div>
-          <div class="btn-row mt-2">
-            <button id="btn-nuke-start" class="btn-success">Iniciar Nuke</button>
-            <button id="btn-nuke-stop" class="btn-danger btn-sm" disabled>Parar</button>
-          </div>
-          <div id="nuke-result" class="result-box mt-2 hidden"></div>
-        </div>
 
+          <!-- Messages panel -->
+          <div class="section-card" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div class="card-header" id="conv-msg-header" style="flex-shrink:0;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <h3 id="conv-chat-name" style="color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Selecione uma conversa</h3>
+                <span id="conv-monitor-badge" class="status-badge status-off hidden" style="font-size:.65rem;white-space:nowrap">● Monitorando</span>
+              </div>
+              <div class="btn-row" style="gap:6px;flex-wrap:wrap">
+                <button id="btn-conv-monitor" class="btn-secondary btn-sm hidden" style="display:flex;align-items:center;gap:4px">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Monitorar
+                </button>
+                <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text-muted);cursor:pointer;white-space:nowrap">
+                  <input type="checkbox" id="conv-show-deleted" checked style="width:auto;margin:0" />
+                  Apagadas
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text-muted);cursor:pointer;white-space:nowrap">
+                  <input type="checkbox" id="conv-hide-media" style="width:auto;margin:0" />
+                  Sem Mídia
+                </label>
+                <button id="btn-conv-load-more" class="btn-ghost btn-sm hidden">Mais</button>
+              </div>
+            </div>
+            <div id="conv-messages" style="flex:1;overflow-y:auto;padding:8px 4px;display:flex;flex-direction:column;gap:2px">
+              <div style="color:var(--text-muted);text-align:center;padding:32px;font-size:.85rem">
+                Selecione uma conversa para ver as mensagens.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: LOGS -->
+      <section id="tab-logs" class="tab-section">
+        <div class="page-header">
+          <h2>Logs em Tempo Real</h2>
+          <p class="page-sub">Eventos do sistema em tempo real via SSE</p>
+        </div>
         <div class="section-card">
-          <div class="card-header"><h3>Status do Nuke</h3></div>
-          <div id="nuke-status-display" style="font-size:.85rem;color:var(--text-muted)">Nuke inativo.</div>
-          <div id="nuke-progress" class="hidden" style="margin-top:12px">
-            <div class="nuke-stat-row"><span>Apagadas:</span> <strong id="nuke-stat-deleted">0</strong></div>
-            <div class="nuke-stat-row"><span>Escaneadas:</span> <strong id="nuke-stat-scanned">0</strong></div>
-            <div class="nuke-stat-row"><span>Falhas:</span> <strong id="nuke-stat-failed">0</strong></div>
+          <div class="card-header">
+            <div class="btn-row">
+              <button id="log-filter-all" class="btn-ghost btn-sm active-filter">Todos</button>
+              <button id="log-filter-info" class="btn-ghost btn-sm">Info</button>
+              <button id="log-filter-warn" class="btn-ghost btn-sm">Warn</button>
+              <button id="log-filter-error" class="btn-ghost btn-sm">Erro</button>
+            </div>
+            <div class="btn-row">
+              <span id="log-status" class="log-status-dot disconnected"></span>
+              <button id="btn-log-clear" class="btn-ghost btn-sm">Limpar</button>
+            </div>
           </div>
+          <div id="log-stream" class="log-stream"></div>
         </div>
-      </div>
+      </section>
 
-      <div class="section-card mt-3">
-        <div class="card-header">
-          <h3>Conversas Privadas (DMs)</h3>
-          <button id="btn-nuke-load-dms" class="btn-secondary btn-sm">Carregar DMs</button>
+      <!-- TAB: HISTÓRICO DE MISSÕES -->
+      <section id="tab-history" class="tab-section">
+        <div class="page-header">
+          <h2>Histórico de Missões</h2>
+          <p class="page-sub">Registro de todas as missões completadas</p>
         </div>
-        <p style="color:var(--text-muted);font-size:.8rem;margin-bottom:8px">Clique em "Usar" para colocar o ID do canal no campo acima.</p>
-        <div id="nuke-dm-list" class="empty-hint">Clique em "Carregar DMs" para listar suas conversas privadas.</div>
-      </div>
-    </section>
-
-    <!-- TAB: LOGS -->
-    <section id="tab-logs" class="tab-section">
-      <div class="page-header">
-        <h2>Logs em Tempo Real</h2>
-        <p class="page-sub">Eventos do sistema em tempo real via SSE</p>
-      </div>
-      <div class="section-card">
-        <div class="card-header">
-          <div class="btn-row">
-            <button id="log-filter-all" class="btn-ghost btn-sm active-filter">Todos</button>
-            <button id="log-filter-info" class="btn-ghost btn-sm">Info</button>
-            <button id="log-filter-warn" class="btn-ghost btn-sm">Warn</button>
-            <button id="log-filter-error" class="btn-ghost btn-sm">Erro</button>
+        <div class="section-card">
+          <div class="card-header">
+            <h3>Missões Completadas</h3>
+            <div class="btn-row">
+              <button id="btn-history-refresh" class="btn-ghost btn-sm">Atualizar</button>
+              <button id="btn-history-clear" class="btn-danger btn-sm">Limpar Histórico</button>
+            </div>
           </div>
-          <div class="btn-row">
-            <span id="log-status" class="log-status-dot disconnected"></span>
-            <button id="btn-log-clear" class="btn-ghost btn-sm">Limpar</button>
-          </div>
+          <div id="quest-history-list" class="quest-history-list empty-hint">Nenhuma missão registrada.</div>
         </div>
-        <div id="log-stream" class="log-stream"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- TAB: HISTÓRICO DE MISSÕES -->
-    <section id="tab-history" class="tab-section">
-      <div class="page-header">
-        <h2>Histórico de Missões</h2>
-        <p class="page-sub">Registro de todas as missões completadas</p>
-      </div>
-      <div class="section-card">
-        <div class="card-header">
-          <h3>Missões Completadas</h3>
-          <div class="btn-row">
-            <button id="btn-history-refresh" class="btn-ghost btn-sm">Atualizar</button>
-            <button id="btn-history-clear" class="btn-danger btn-sm">Limpar Histórico</button>
-          </div>
-        </div>
-        <div id="quest-history-list" class="quest-history-list empty-hint">Nenhuma missão registrada.</div>
-      </div>
-    </section>
+    </main>
+  </div>
 
-  </main>
-</div>
+  <script src="utils.js"></script>
+  <!-- MODAL CUSTOMIZADO -->
+  <div id="dm-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div id="dm-modal-box" style="background:#0e0920;border:1px solid var(--border2);border-radius:16px;width:420px;max-width:90vw;box-shadow:0 0 60px rgba(168,85,247,.2),0 24px 64px rgba(0,0,0,.8);overflow:hidden">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="dm-modal-title" style="font-size:.95rem;font-weight:800;color:var(--text);letter-spacing:.02em"></span>
+      </div>
+      <div id="dm-modal-body" style="padding:18px 20px;font-size:.86rem;color:var(--text-dim);line-height:1.8;white-space:pre-line"></div>
+      <div style="padding:12px 20px 16px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border)">
+        <button id="dm-modal-cancel" class="btn-ghost" style="padding:8px 20px;font-size:.84rem">Cancelar</button>
+        <button id="dm-modal-confirm" class="btn-danger" style="padding:8px 22px;font-size:.84rem;font-weight:700"></button>
+      </div>
+    </div>
+  </div>
 
-<script src="utils.js"></script>
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
+
 </html>

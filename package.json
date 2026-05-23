@@ -7,7 +7,9 @@
   "scripts": {
     "start": "set ELECTRON_RUN_AS_NODE=&& electron desktop/main.cjs",
     "dev": "set ELECTRON_RUN_AS_NODE=&& electron desktop/main.cjs",
-    "desktop": "set ELECTRON_RUN_AS_NODE=&& electron desktop/main.cjs"
+    "desktop": "set ELECTRON_RUN_AS_NODE=&& electron desktop/main.cjs",
+    "build:win": "electron-builder --win --x64",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
@@ -15,12 +17,74 @@
     "cookie-session": "^2.0.0",
     "discord-rpc": "^4.0.1",
     "discord.js-selfbot-v13": "^3.7.1",
+    "electron-updater": "^6.8.3",
     "express": "^4.18.2",
     "https-proxy-agent": "^7.0.6",
     "libsodium-wrappers": "^0.7.13",
     "opusscript": "^0.0.8"
   },
   "devDependencies": {
-    "electron": "30.5.1"
+    "electron": "30.5.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.hyukiteckk.discordmanager",
+    "productName": "Discord Manager",
+    "copyright": "Hyukiteckk",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build-assets"
+    },
+    "files": [
+      "**/*",
+      "!{dist,docs,.devflow,.claude,build-assets}/**",
+      "!{debug_*,read_cookies}.mjs",
+      "!*.md",
+      "!Iniciar.cmd",
+      "!spyGateway.js"
+    ],
+    "extraResources": [
+      {
+        "from": "data/quest_helper.exe",
+        "to": "quest_helper.exe"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Discord Manager"
+    },
+    "portable": {
+      "artifactName": "DiscordManager-portable-${arch}.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "SEU_USUARIO_GITHUB",
+      "repo": "SEU_REPOSITORIO",
+      "private": true
+    }
   }
 }

@@ -1,22 +1,30 @@
 import { EventEmitter } from 'events';
 import { Client } from "discord.js-selfbot-v13";
 import { joinVoiceChannel, getVoiceConnection } from "@discordjs/voice";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { dirname, join } from "path";
 import { randomUUID } from "crypto";
 import { ProxyAgent } from 'undici';
 
 const DISCORD_API = "https://discord.com/api/v10";
 const DISCORD_API_V9 = "https://discord.com/api/v9";
+const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Discord/1.0.9173 Chrome/132.0.6834.196 Electron/34.3.2 Safari/537.36";
 const SUPER_PROPS = Buffer.from(JSON.stringify({
   os: "Windows", browser: "Discord Client", release_channel: "stable",
-  client_version: "1.0.9168", os_version: "10.0.22621", os_arch: "x64",
+  client_version: "1.0.9173", os_version: "10.0.22621", os_arch: "x64",
   app_arch: "x64", system_locale: "pt-BR",
-  browser_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9168 Chrome/124.0.6367.243 Electron/30.4.0 Safari/537.36",
-  browser_version: "30.4.0", os_sdk_version: "22621",
-  client_build_number: 540600,
-  native_build_number: 50950,
+  browser_user_agent: DESKTOP_UA,
+  browser_version: "34.3.2", os_sdk_version: "22621",
+  client_build_number: 560360,
+  native_build_number: 57360,
 })).toString("base64");
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
+
+// Quest task config
+const TASK_PRIORITY  = ["WATCH_VIDEO", "WATCH_VIDEO_ON_MOBILE", "PLAY_ON_DESKTOP", "PLAY_ON_DESKTOP_V2", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY"];
+const HEARTBEAT_TASKS = new Set(["PLAY_ON_DESKTOP", "PLAY_ON_DESKTOP_V2", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY"]);
+const VIDEO_TASKS     = new Set(["WATCH_VIDEO", "WATCH_VIDEO_ON_MOBILE", "VIDEO"]);
+const SKIP_TASKS      = new Set(["ACHIEVEMENT_IN_ACTIVITY", "ACHIEVEMENT_IN_GAME", "PLAY_ON_XBOX", "PLAY_ON_PLAYSTATION", "progress"]);
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -66,12 +74,16 @@ export class BotRuntime extends EventEmitter {
     this.configPath = configPath;
     this.questHistoryPath = questHistoryPath;
     this.nickCachePath = nickCachePath;
+    this.statsPath = join(dirname(configPath), 'stats.json');
+    this.backupDir = join(dirname(configPath), 'message-backup');
+    mkdirSync(this.backupDir, { recursive: true });
     this.sessions = new Map();
     this._running = false;
     this._questMonitor = null;
     this._nukeJob = null;
     this._logs = [];
     this._logId = 0;
+    this._monitors = new Map(); // channelId -> { token, timer }
   }
 
   _addLog(level, msg) {
@@ -114,6 +126,120 @@ export class BotRuntime extends EventEmitter {
   getQuestHistory() { return this.loadQuestHistory(); }
   clearQuestHistory() { this.saveQuestHistory([]); }
 
+  // ── Stats persistentes (por Discord user ID) ──────────────────────────────
+  _statsPath(discordId) {
+    const dir = dirname(this.configPath);
+    return discordId ? join(dir, `stats-${discordId}.json`) : this.statsPath;
+  }
+
+  loadStats(discordId = null) {
+    try {
+      const p = this._statsPath(discordId);
+      if (!existsSync(p)) return { purgedCount: 0 };
+      return JSON.parse(readFileSync(p, 'utf8'));
+    } catch { return { purgedCount: 0 }; }
+  }
+
+  saveStats(stats, discordId = null) {
+    try { writeFileSync(this._statsPath(discordId), JSON.stringify(stats, null, 2), 'utf8'); } catch {}
+  }
+
+  incrementStat(key, amount = 1, discordId = null) {
+    const stats = this.loadStats(discordId);
+    stats[key] = (stats[key] || 0) + amount;
+    this.saveStats(stats, discordId);
+  }
+
+  getStats(discordId = null) {
+    const stats = this.loadStats(discordId);
+    stats.questsCompleted = this.loadQuestHistory().filter(h => h.success).length;
+    stats.purgedCount = stats.purgedCount || 0;
+    return stats;
+  }
+
+  // ── Backup de mensagens ───────────────────────────────────────────────────
+  _backupPath(channelId) {
+    return join(this.backupDir, `${String(channelId).replace(/[^a-zA-Z0-9_-]/g, '')}.json`);
+  }
+
+  loadChannelBackup(channelId) {
+    try {
+      const p = this._backupPath(channelId);
+      if (!existsSync(p)) return {};
+      return JSON.parse(readFileSync(p, 'utf8'));
+    } catch { return {}; }
+  }
+
+  saveChannelBackup(channelId, messages) {
+    try { writeFileSync(this._backupPath(channelId), JSON.stringify(messages, null, 2), 'utf8'); } catch {}
+  }
+
+  getBackupMessages(channelId) {
+    const backup = this.loadChannelBackup(channelId);
+    return Object.values(backup).sort((a, b) => {
+      try { return BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0; }
+      catch { return 0; }
+    });
+  }
+
+  isMonitoring(channelId) { return this._monitors.has(channelId); }
+
+  async startChannelMonitor(token, channelId) {
+    if (this._monitors.has(channelId)) return;
+
+    const poll = async () => {
+      try {
+        const msgs = await this.getDMMessages(token, channelId, null, 100);
+        if (!msgs.length) return;
+
+        const backup = this.loadChannelBackup(channelId);
+        const now = new Date().toISOString();
+        const currentIds = new Set(msgs.map(m => m.id));
+        const newestId = msgs[0].id;
+        const oldestId = msgs[msgs.length - 1].id;
+
+        // Detectar deleções dentro da janela buscada
+        for (const [id, backedMsg] of Object.entries(backup)) {
+          if (!backedMsg.deleted) {
+            try {
+              if (BigInt(id) >= BigInt(oldestId) && BigInt(id) <= BigInt(newestId) && !currentIds.has(id)) {
+                backup[id] = { ...backedMsg, deleted: true, deletedAt: now };
+                this.emit('backup:deleted', { channelId, messageId: id, message: backup[id] });
+              }
+            } catch {}
+          }
+        }
+
+        // Adicionar mensagens novas / detectar edições
+        for (const msg of msgs) {
+          const existing = backup[msg.id];
+          if (!existing) {
+            backup[msg.id] = { ...msg, deleted: false, savedAt: now };
+            this.emit('backup:new', { channelId, message: backup[msg.id] });
+          } else if (!existing.deleted && msg.editedTimestamp && existing.editedTimestamp !== msg.editedTimestamp) {
+            backup[msg.id] = { ...existing, ...msg, deleted: false };
+            this.emit('backup:edited', { channelId, message: backup[msg.id] });
+          }
+        }
+
+        this.saveChannelBackup(channelId, backup);
+      } catch { /* token expirado ou canal inacessível */ }
+    };
+
+    await poll();
+    const timer = setInterval(poll, 5000);
+    this._monitors.set(channelId, { token, timer });
+  }
+
+  stopChannelMonitor(channelId) {
+    const m = this._monitors.get(channelId);
+    if (m) { clearInterval(m.timer); this._monitors.delete(channelId); }
+  }
+
+  stopAllMonitors() {
+    for (const [id] of this._monitors) this.stopChannelMonitor(id);
+  }
+
   loadNickCache() {
     try {
       if (!existsSync(this.nickCachePath)) return {};
@@ -150,7 +276,8 @@ export class BotRuntime extends EventEmitter {
     }
   }
 
-  async joinVoiceWithToken(token, guildId, channelId) {
+  async joinVoiceWithToken(token, guildId, channelId, opts = {}) {
+    const { fakeDeaf = false, selfMute = true } = typeof opts === "boolean" ? { fakeDeaf: opts } : opts;
     if (this.sessions.has(token)) {
       const s = this.sessions.get(token);
       await this._leaveVoice(token, s.client);
@@ -183,9 +310,16 @@ export class BotRuntime extends EventEmitter {
       channelId,
       guildId,
       adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true,
-      selfMute: true,
+      selfDeaf: !fakeDeaf,
+      selfMute,
     });
+
+    if (fakeDeaf) {
+      setTimeout(() => {
+        const shard = client.ws.shards.first();
+        if (shard) shard.send({ op: 4, d: { guild_id: guildId, channel_id: channelId, self_mute: selfMute, self_deaf: true } });
+      }, 600);
+    }
 
     const tag = client.user.tag || client.user.username;
     this.sessions.set(token, {
@@ -217,6 +351,13 @@ export class BotRuntime extends EventEmitter {
     }
     this.sessions.clear();
     this._running = false;
+    this.stopAllMonitors();
+  }
+
+  async leaveOneSession(token) {
+    const s = this.sessions.get(token);
+    if (!s) throw new Error("Sessão não encontrada para esse token.");
+    await this._leaveVoice(token, s.client);
   }
 
   async _leaveVoice(token, client) {
@@ -662,7 +803,12 @@ export class BotRuntime extends EventEmitter {
         const qid = q.quest_id || q.id;
         const name = q.config?.application_name || qid;
         const tasks = q.config?.task_config || {};
-        const taskType = Object.keys(tasks)[0] || "WATCH_VIDEO";
+        const available = Object.keys(tasks).filter(t => !SKIP_TASKS.has(t));
+        const taskType = TASK_PRIORITY.find(t => available.includes(t)) || available[0];
+        if (!taskType) {
+          addLog(`Missão "${name}" — tipo não suportado (${Object.keys(tasks).join(', ')}), pulando.`);
+          continue;
+        }
         const target = tasks[taskType]?.target_minutes || 150;
         const enrolled = q.user_status != null;
         const appId = q.config?.application_id;
@@ -680,7 +826,7 @@ export class BotRuntime extends EventEmitter {
         }
 
         // Para quests de jogo/stream: ativa presença de jogo antes dos heartbeats
-        if ((taskType === "PLAY_ON_DESKTOP" || taskType === "STREAM_ON_DESKTOP") && appId) {
+        if (HEARTBEAT_TASKS.has(taskType) && appId) {
           addLog(`Ativando presença de jogo "${name}" (${appId})...`);
           setGamePresence(appId, name);
           await sleep(3000); // aguarda Discord detectar o "jogo"
@@ -697,7 +843,7 @@ export class BotRuntime extends EventEmitter {
           }
         } finally {
           // Limpa presença após quest finalizar
-          if (taskType === "PLAY_ON_DESKTOP" || taskType === "STREAM_ON_DESKTOP") clearPresence();
+          if (HEARTBEAT_TASKS.has(taskType)) clearPresence();
           monitor.activeQuest = null;
         }
       }
@@ -921,15 +1067,13 @@ export class BotRuntime extends EventEmitter {
             monitor.activeQuest.appId = appId;
 
             // Ativa presença de jogo se PLAY/STREAM e tiver app ID
-            if (appId && (taskType === "PLAY_ON_DESKTOP" || taskType === "STREAM_ON_DESKTOP")) {
+            if (appId && HEARTBEAT_TASKS.has(taskType)) {
               addLog(`Ativando presença: "${appName}"...`);
               setGamePresence(appId, appName);
               await sleep(3000);
             }
 
-            // Para WATCH_VIDEO: passa segundos diretamente (a função usa <= 600 como segundos)
-            // Garante ao menos 300s para cobrir qualquer quest de vídeo
-            const isVideo = taskType === "WATCH_VIDEO" || taskType === "VIDEO";
+            const isVideo = VIDEO_TASKS.has(taskType);
             const target = isVideo
               ? Math.max(targetSeconds + 30, 300)  // alvo + margem, mínimo 300s
               : targetMinutes;
@@ -1058,12 +1202,15 @@ export class BotRuntime extends EventEmitter {
     const isCompleted = (d) => Boolean(
       d?.completed_at || d?.user_status?.completed_at ||
       d?.progress?.WATCH_VIDEO?.completed_at ||
+      d?.progress?.WATCH_VIDEO_ON_MOBILE?.completed_at ||
       d?.progress?.VIDEO?.completed_at ||
       d?.progress?.PLAY_ON_DESKTOP?.completed_at ||
-      d?.progress?.STREAM_ON_DESKTOP?.completed_at
+      d?.progress?.PLAY_ON_DESKTOP_V2?.completed_at ||
+      d?.progress?.STREAM_ON_DESKTOP?.completed_at ||
+      d?.progress?.PLAY_ACTIVITY?.completed_at
     );
 
-    if (taskType === "WATCH_VIDEO" || taskType === "VIDEO") {
+    if (VIDEO_TASKS.has(taskType)) {
       const clientHeartbeatSessionId = randomUUID();
       const clientAdSessionId = randomUUID();
 
@@ -1144,11 +1291,11 @@ export class BotRuntime extends EventEmitter {
       return { ok: true, completed: done, progress: totalSeconds, total: totalSeconds, data: lastData };
     }
 
-    // Quests clássicas de jogo/stream (PLAY_ON_DESKTOP, STREAM_ON_DESKTOP)
+    // Quests clássicas de jogo/stream (PLAY_ON_DESKTOP, PLAY_ON_DESKTOP_V2, STREAM_ON_DESKTOP, PLAY_ACTIVITY)
     const streamType = "DESKTOP_AUDIO";
     let lastData = null;
     for (let min = 1; min <= targetMinutes; min++) {
-      const additionalMeta = taskType === "PLAY_ON_DESKTOP"
+      const additionalMeta = (taskType === "PLAY_ON_DESKTOP" || taskType === "PLAY_ON_DESKTOP_V2" || taskType === "PLAY_ACTIVITY")
         ? { minutes_played: min }
         : { minutes_of_video: min };
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -1188,40 +1335,71 @@ export class BotRuntime extends EventEmitter {
     return { ok: true, completed: done, progress: targetMinutes, total: targetMinutes, data: lastData };
   }
 
-  async investigateUser(myToken, targetId) {
-    // Pega meus servidores primeiro — temos nomes reais aqui
-    let myGuilds = [];
-    try { myGuilds = await discordApiRequest(myToken, "/users/@me/guilds"); } catch {}
-    if (!Array.isArray(myGuilds)) myGuilds = [];
-    const myGuildMap = new Map(myGuilds.map((g) => [g.id, g.name || g.id]));
+  async investigateUser(primaryToken, targetId, extraTokens = []) {
+    const allTokens = [primaryToken, ...extraTokens.filter((t) => t && t !== primaryToken)];
 
-    // 1) Profile completo (amigos, mutual guilds, conexões)
+    // ── 1) Coleta lista de servidores de TODOS os tokens ───────────────────
+    // guildAccessMap: guildId → { guild, tokens[] }
+    const guildAccessMap = new Map();
+    const tokenGuildMap = new Map();
+
+    for (const tok of allTokens) {
+      try {
+        const guilds = await discordApiRequest(tok, "/users/@me/guilds");
+        if (Array.isArray(guilds)) {
+          tokenGuildMap.set(tok, guilds);
+          for (const g of guilds) {
+            if (!guildAccessMap.has(g.id)) {
+              guildAccessMap.set(g.id, { guild: g, tokens: [tok] });
+            } else {
+              guildAccessMap.get(g.id).tokens.push(tok);
+            }
+          }
+        }
+      } catch {}
+      if (tok !== primaryToken) await sleep(350);
+    }
+
+    const totalGuildsAvailable = guildAccessMap.size;
+    const primaryGuilds = tokenGuildMap.get(primaryToken) || [];
+
+    // ── 2) Busca perfil completo do alvo (amigos, conexões, etc.) ──────────
     let profile = null;
     let targetUser = null;
-    try {
-      profile = await discordApiRequest(myToken, `/users/${targetId}/profile?with_mutual_guilds=true&with_mutual_friends=true`);
-      targetUser = profile.user;
-    } catch {}
 
-    // 2) Varre todos os meus servidores procurando o membro
+    for (const tok of allTokens) {
+      try {
+        profile = await discordApiRequest(tok, `/users/${targetId}/profile?with_mutual_guilds=true&with_mutual_friends=true`);
+        if (profile?.user) { targetUser = profile.user; break; }
+      } catch {}
+    }
+
+    // Fallback: busca básica de usuário
     if (!targetUser) {
-      for (const g of myGuilds.slice(0, 50)) {
+      for (const tok of allTokens) {
         try {
-          const member = await discordApiRequest(myToken, `/guilds/${g.id}/members/${targetId}`);
-          if (member?.user) { targetUser = member.user; break; }
+          targetUser = await discordApiRequest(tok, `/users/${targetId}`);
+          if (targetUser?.id) break;
         } catch {}
-        await sleep(120);
       }
     }
 
-    // 3) Fallback básico
+    // Fallback: varre servidores buscando o membro
     if (!targetUser) {
-      try { targetUser = await discordApiRequest(myToken, `/users/${targetId}`); } catch {}
+      outer: for (const [guildId, { guild, tokens }] of guildAccessMap) {
+        for (const tok of tokens) {
+          try {
+            const member = await discordApiRequest(tok, `/guilds/${guildId}/members/${targetId}`);
+            if (member?.user) { targetUser = member.user; break outer; }
+          } catch {}
+        }
+        await sleep(100);
+      }
     }
 
     if (!targetUser) {
       throw new Error(
-        "Usuário não encontrado. O Discord só expõe dados de usuários que estão em servidores em comum com você ou são seus amigos."
+        "Usuário não encontrado em nenhum dos servidores varridos. Adicione tokens de contas que estejam em servidores com o alvo."
       );
     }
 
@@ -1240,57 +1418,102 @@ export class BotRuntime extends EventEmitter {
       discriminator: (f.discriminator && f.discriminator !== "0") ? f.discriminator : null,
     }));
 
-    // Monta lista de guilds mútuos com nomes reais
-    const profileMutualIds = new Set((profile?.mutual_guilds || []).map((g) => g.id));
-    const mutualGuilds = (profile?.mutual_guilds || []).map((g) => ({
-      id: g.id,
-      name: myGuildMap.get(g.id) || g.name || g.id,  // nome real do meu mapa
-      nick: g.nick || null,
-    }));
+    // ── 3) Varre TODOS os servidores de TODOS os tokens ────────────────────
+    // Ordena: servidores com mais tokens disponíveis primeiro (mais chance de encontrar)
+    const primaryMutualIds = new Set((profile?.mutual_guilds || []).map((g) => g.id));
+    const sortedEntries = [...guildAccessMap.entries()].sort(([aId, a], [bId, b]) => {
+      const aMutual = primaryMutualIds.has(aId) ? 1 : 0;
+      const bMutual = primaryMutualIds.has(bId) ? 1 : 0;
+      return bMutual - aMutual || b.tokens.length - a.tokens.length;
+    });
 
-    // Varre TODOS os meus servidores buscando o membro e seu nick
     const nicknames = [];
-    const checkedIds = new Set();
+    const foundGuildIds = new Set();
 
-    // Primeiro os guilds mútuos (mais provável de encontrar), depois o resto — sem limite
-    const guildsToScan = [
-      ...myGuilds.filter((g) => profileMutualIds.has(g.id)),
-      ...myGuilds.filter((g) => !profileMutualIds.has(g.id)),
-    ];
-
-    for (const g of guildsToScan) {
-      if (checkedIds.has(g.id)) continue;
-      checkedIds.add(g.id);
-      try {
-        const member = await discordApiRequest(myToken, `/guilds/${g.id}/members/${targetId}`);
-        if (member?.user) {
-          nicknames.push({ guildId: g.id, guildName: g.name || g.id, nick: member.nick || null });
-          // Adiciona à lista de mutual guilds se ainda não está
-          if (!mutualGuilds.find((mg) => mg.id === g.id)) {
-            mutualGuilds.push({ id: g.id, name: g.name || g.id, nick: member.nick || null });
+    for (const [guildId, { guild, tokens }] of sortedEntries) {
+      let found = false;
+      for (const tok of tokens) {
+        try {
+          const member = await discordApiRequest(tok, `/guilds/${guildId}/members/${targetId}`);
+          if (member?.user) {
+            nicknames.push({
+              guildId,
+              guildName: guild.name || guildId,
+              nick: member.nick || null,
+              joinedAt: member.joined_at || null,
+              roles: member.roles || [],
+              premiumSince: member.premium_since || null,
+              tokenIndex: allTokens.indexOf(tok),
+            });
+            foundGuildIds.add(guildId);
+            found = true;
+            break;
           }
-        }
-      } catch {}
-      await sleep(180);
+        } catch {}
+      }
+      await sleep(found ? 120 : 80);
     }
 
-    // Merge with nick cache
+    // ── 4) Lista de servidores encontrados (todos onde o alvo está) ─────────
+    // Inclui os do profile + os encontrados na varredura
+    const foundGuildsMap = new Map();
+    for (const [id, { guild }] of guildAccessMap) {
+      foundGuildsMap.set(id, guild.name || id);
+    }
+    // Adiciona os do profile (podem ter nomes que não temos no guildAccessMap)
+    for (const g of (profile?.mutual_guilds || [])) {
+      if (!foundGuildsMap.has(g.id)) foundGuildsMap.set(g.id, g.id);
+    }
+
+    const foundGuilds = nicknames.map((n) => ({
+      id: n.guildId,
+      name: n.guildName,
+      nick: n.nick,
+      joinedAt: n.joinedAt,
+      tokenIndex: n.tokenIndex,
+    }));
+    // Adiciona os do profile que não apareceram na varredura (sem permissão de membro)
+    for (const pg of (profile?.mutual_guilds || [])) {
+      if (!foundGuildIds.has(pg.id)) {
+        foundGuilds.push({
+          id: pg.id,
+          name: foundGuildsMap.get(pg.id) || pg.id,
+          nick: pg.nick || null,
+          joinedAt: null,
+        });
+      }
+    }
+
+    // ── 5) DM channel ───────────────────────────────────────────────────────
+    let dmChannelId = null;
+    for (const tok of allTokens) {
+      try {
+        const dm = await discordApiRequest(tok, '/users/@me/channels', { method: 'POST', body: { recipient_id: targetId } });
+        if (dm?.id) { dmChannelId = dm.id; break; }
+      } catch {}
+    }
+
+    const isBot = Boolean(targetUser.bot);
+
+    // ── 6) Nick cache (histórico acumulado) ────────────────────────────────
     const cache = this.loadNickCache();
     if (!cache[targetId]) cache[targetId] = [];
     const seenNow = new Set(nicknames.map((n) => `${n.guildId}:${n.nick}`));
     const now = new Date().toISOString();
     for (const n of nicknames) {
       const existing = cache[targetId].find((c) => c.guildId === n.guildId && c.nick === n.nick);
-      if (existing) { existing.seenAt = now; } else { cache[targetId].push({ guildId: n.guildId, guildName: n.guildName, nick: n.nick, seenAt: now }); }
+      if (existing) { existing.seenAt = now; existing.guildName = n.guildName; }
+      else { cache[targetId].push({ guildId: n.guildId, guildName: n.guildName, nick: n.nick, seenAt: now }); }
     }
-    if (cache[targetId].length > 100) cache[targetId] = cache[targetId].slice(-100);
+    // Sem limite de 100 — guarda tudo
     this.saveNickCache(cache);
+
     const nicksHistory = [
       ...nicknames.map((n) => ({ ...n, current: true, seenAt: now })),
       ...cache[targetId].filter((c) => !seenNow.has(`${c.guildId}:${c.nick}`)).map((c) => ({ ...c, current: false })),
     ];
 
-    // Agrupa todos os nicks únicos por valor (não por servidor)
+    // ── 7) Agrupa nicks únicos por valor ────────────────────────────────────
     const uniqueNickMap = new Map();
     for (const n of nicksHistory) {
       const val = n.nick || null;
@@ -1301,13 +1524,15 @@ export class BotRuntime extends EventEmitter {
       uniqueNickMap.get(key).servers.push({ guildId: n.guildId, guildName: n.guildName, current: Boolean(n.current) });
     }
     const uniqueNickValues = [...uniqueNickMap.values()]
-      .filter((v) => v.nick !== null) // exclui entradas sem nick
+      .filter((v) => v.nick !== null)
       .sort((a, b) => b.servers.length - a.servers.length);
 
+    // ── 8) Análise de alt/risco ─────────────────────────────────────────────
     const reasons = [];
+    if (isBot) reasons.push("Conta Bot");
     if (accountAgeDays < 30) reasons.push("Conta criada há menos de 30 dias");
     else if (accountAgeDays < 90) reasons.push("Conta nova (menos de 90 dias)");
-    if (mutualGuilds.length === 0) reasons.push("Não encontrado em nenhum servidor em comum");
+    if (foundGuilds.length === 0) reasons.push("Não encontrado em nenhum servidor");
     if (!(targetUser.public_flags || 0) && premiumType === 0) reasons.push("Sem badges ou Nitro detectado");
     if (profile && connections.length === 0) reasons.push("Sem conexões públicas vinculadas");
     const risk = reasons.length >= 3 ? "ALTO" : reasons.length >= 2 ? "MÉDIO" : "BAIXO";
@@ -1323,8 +1548,17 @@ export class BotRuntime extends EventEmitter {
         public_flags: targetUser.public_flags || 0, premium_type: premiumType,
         createdAt: createdAt.toISOString(), accountAgeDays,
       },
-      bio, pronouns, premiumSince, mutualGuilds, mutualFriends, connections, nicknames, nicksHistory, uniqueNickValues,
+      bio, pronouns, premiumSince,
+      mutualGuilds: foundGuilds,   // retrocompat — agora são TODOS os servidores encontrados
+      foundGuilds,
+      mutualFriends, connections, nicknames, nicksHistory, uniqueNickValues,
       altAnalysis: { risk, accountAgeDays, reasons },
+      dmChannelId, isBot,
+      scanStats: {
+        tokensUsed: allTokens.length,
+        totalGuildsScanned: totalGuildsAvailable,
+        guildsFoundUser: foundGuilds.length,
+      },
     };
   }
 
@@ -1363,6 +1597,50 @@ export class BotRuntime extends EventEmitter {
       }));
   }
 
+  async getDMMessages(token, channelId, before = null, limit = 50) {
+    let url = `/channels/${channelId}/messages?limit=${Math.min(limit, 100)}`;
+    if (before) url += `&before=${before}`;
+    const messages = await discordApiRequest(token, url);
+    if (!Array.isArray(messages)) return [];
+    return messages.map(m => ({
+      id: m.id,
+      content: m.content || '',
+      authorId: m.author?.id,
+      authorName: m.author?.global_name || m.author?.username || '?',
+      authorDiscriminator: (m.author?.discriminator && m.author.discriminator !== '0') ? m.author.discriminator : null,
+      authorAvatar: m.author?.avatar,
+      authorBot: m.author?.bot || false,
+      timestamp: m.timestamp,
+      editedTimestamp: m.edited_timestamp || null,
+      attachments: (m.attachments || []).map(a => ({
+        id: a.id,
+        filename: a.filename,
+        url: a.url,
+        proxyUrl: a.proxy_url || a.url,
+        size: a.size,
+        contentType: a.content_type || '',
+        width: a.width || null,
+        height: a.height || null,
+        durationSecs: a.duration_secs || null,
+        waveform: a.waveform || null,
+      })),
+      embeds: (m.embeds || []).map(e => ({
+        type: e.type,
+        title: e.title || null,
+        description: e.description || null,
+        url: e.url || null,
+        image: e.image?.url || null,
+        thumbnail: e.thumbnail?.url || null,
+        color: e.color || null,
+      })).filter(e => e.title || e.description || e.image || e.thumbnail || e.url),
+      stickers: (m.sticker_items || []).map(s => ({ id: s.id, name: s.name })),
+      type: m.type || 0,
+      isVoiceMessage: !!(m.flags & 8192),
+      flags: m.flags || 0,
+      referencedMessageId: m.message_reference?.message_id || null,
+    }));
+  }
+
   getNukeStatus() {
     return this._nukeJob
       ? { running: this._nukeJob.running, deleted: this._nukeJob.deleted, failed: this._nukeJob.failed, scanned: this._nukeJob.scanned, channelId: this._nukeJob.channelId }
@@ -1374,7 +1652,7 @@ export class BotRuntime extends EventEmitter {
   }
 
   async nukeChannel(params = {}) {
-    const { token, channelId, userId, keyword, limit } = params;
+    const { token, channelId, userId, keyword, limit, ownerDiscordId = null } = params;
     if (!token || !channelId) throw new Error("Token e ID do canal são obrigatórios.");
 
     this._nukeJob = { running: true, stopped: false, deleted: 0, failed: 0, scanned: 0, channelId };
@@ -1425,15 +1703,16 @@ export class BotRuntime extends EventEmitter {
               job.failed++;
             }
           }
-          await sleep(900);
+          await sleep(100);
         }
 
         if (messages.length < 100) break;
-        await sleep(400);
+        await sleep(100);
       }
     } finally {
       job.running = false;
       this._addLog("info", `Nuke finalizado: ${job.deleted} apagadas, ${job.failed} falhas, ${job.scanned} escaneadas`);
+      if (job.deleted > 0) this.incrementStat('purgedCount', job.deleted, ownerDiscordId);
     }
 
     return { ok: true, deleted: job.deleted, failed: job.failed, scanned: job.scanned };

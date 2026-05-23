@@ -1,0 +1,9 @@
+name = "darkmoon-bot"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# KV namespace — crie com: wrangler kv namespace create DM_KV
+# Depois cole o id gerado aqui em baixo
+[[kv_namespaces]]
+binding = "DM_KV"
+id = "fc640774283c4386820f4aef1c05a524"

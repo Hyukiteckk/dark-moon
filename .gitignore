@@ -22,3 +22,11 @@ out/
 # Debug/test scripts (may contain hardcoded tokens)
 debug_*.mjs
 read_cookies.mjs
+
+# Dados locais de usuários (nunca subir)
+data/users.json
+data/accounts/
+data/session-secret.txt
+
+# Env com segredos
+.env

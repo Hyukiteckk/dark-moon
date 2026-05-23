@@ -264,7 +264,7 @@
             this.root.innerHTML = `
                 <div id="orion-head">
                     <span id="orion-title">${ICONS.BOLT} ${CONFIG.NAME}
-                        <span class="dev-credit">by syntt_</span>
+                        <span class="dev-credit">by Hyukiteckk</span>
                         <span style="opacity:0.6; font-size:10px; margin-left:4px; padding-top: 3px; font-weight:500;">${CONFIG.VERSION}</span>
                     </span>
                     <div id="orion-controls">
@@ -1125,56 +1125,111 @@
         },
 
         // ACHIEVEMENT_IN_ACTIVITY — target is usually 1 (a milestone, not seconds).
-        // First tries active heartbeat spoofing (same as ACTIVITY handler).
-        // If Discord rejects with 4xx, falls back to passive event monitoring.
+        // Strategy 1: try multiple stream_key formats (none, activities:, call:).
+        // Strategy 2: inject app via RPC and wait for Discord to send heartbeat (60s).
+        // Strategy 3: passive — wait for user to join the activity manually.
         async ACHIEVEMENT(q, t) {
             Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: 0, max: t.target, status: "RUNNING" });
 
-            // attempt active heartbeat spoofing
             let chan = null;
             try {
                 chan = Mods.ChanStore?.getSortedPrivateChannels()?.[0]?.id
                     ?? Object.values(Mods.GuildChanStore?.getAllGuilds() ?? {}).find(g => g?.VOCAL?.length)?.VOCAL?.[0]?.channel?.id;
             } catch (e) { Logger.log(`[Achievement] Channel lookup: ${e.message}`, 'debug'); }
 
-            if (chan) {
-                Logger.log(`[Task] Attempting heartbeat spoofing for "${t.name}"...`, 'info');
-                const key = `call:${chan}:${rnd(1000, 9999)}`;
-                let cur = 0;
-                let failCount = 0;
+            // Strategy 1: try multiple stream_key formats
+            const keysToTry = chan ? [
+                null,
+                `activities:${chan}:${rnd(1000, 9999)}`,
+                `call:${chan}:${rnd(1000, 9999)}`
+            ] : [];
 
-                while (cur < t.target && RUNTIME.running) {
-                    try {
-                        const r = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, { stream_key: key, terminal: false });
-                        cur = r?.body?.progress?.[t.keyName]?.value ?? r?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? cur;
-                        Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur, max: t.target, status: "RUNNING" });
-                        failCount = 0;
+            for (const streamKey of keysToTry) {
+                if (!RUNTIME.running) return;
+                const body = streamKey ? { stream_key: streamKey, terminal: false } : { terminal: false };
+                Logger.log(`[Achievement] Trying stream_key format: ${streamKey ?? 'none'}`, 'debug');
+                try {
+                    const r = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, body);
+                    let cur = r?.body?.progress?.[t.keyName]?.value ?? r?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? 0;
+                    Logger.log(`[Achievement] Heartbeat accepted (format: ${streamKey ?? 'none'}), progress: ${cur}`, 'info');
+                    Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur, max: t.target, status: "RUNNING" });
 
-                        if (cur >= t.target) {
-                            try { await Traffic.enqueue(`/quests/${q.id}/heartbeat`, { stream_key: key, terminal: true }); }
-                            catch (_) { }
-                            break;
-                        }
-                    } catch (e) {
-                        failCount++;
-                        const err = ErrorHandler.classify(e);
-                        if (err.isClientError) {
-                            Logger.log(`[Achievement] Heartbeat rejected (HTTP ${err.status}). Falling back to passive mode.`, 'warn');
-                            break;
-                        }
-                        if (failCount >= SYS.MAX_TASK_FAILURES) {
-                            Logger.log(`[Achievement] Too many failures. Falling back to passive mode.`, 'warn');
-                            break;
+                    let failCount = 0;
+                    while (cur < t.target && RUNTIME.running) {
+                        await sleep(rnd(19000, 22000));
+                        try {
+                            const r2 = await Traffic.enqueue(`/quests/${q.id}/heartbeat`, body);
+                            cur = r2?.body?.progress?.[t.keyName]?.value ?? r2?.body?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? cur;
+                            Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur, max: t.target, status: "RUNNING" });
+                            failCount = 0;
+                        } catch (e) {
+                            const err = ErrorHandler.classify(e);
+                            if (err.isClientError || ++failCount >= SYS.MAX_TASK_FAILURES) break;
                         }
                     }
-                    await sleep(rnd(19000, 22000));
-                }
 
-                if (cur >= t.target && RUNTIME.running) return Tasks.finish(q, t);
+                    if (cur >= t.target && RUNTIME.running) {
+                        try { await Traffic.enqueue(`/quests/${q.id}/heartbeat`, { ...(streamKey ? { stream_key: streamKey } : {}), terminal: true }); } catch (_) {}
+                        return Tasks.finish(q, t);
+                    }
+                    break; // format worked but didn't complete — stop trying more formats
+                } catch (e) {
+                    const err = ErrorHandler.classify(e);
+                    if (err.isClientError) {
+                        Logger.log(`[Achievement] Format "${streamKey ?? 'none'}" → HTTP ${err.status}, trying next...`, 'debug');
+                        continue;
+                    }
+                    throw e;
+                }
             }
 
-            // fallback: passive mode — wait for user to complete the activity manually
             if (!RUNTIME.running) return;
+
+            // Strategy 2: inject app via RPC, wait for Discord's own heartbeat (60s window)
+            if (t.appId) {
+                Logger.log(`[Achievement] Trying RPC injection for "${t.name}"...`, 'info');
+                try {
+                    const gameData = await Tasks.fetchGameData(t.appId, t.name);
+                    const pid = rnd(2500, 12500) * 4;
+                    const game = {
+                        id: gameData.id, name: gameData.name, icon: gameData.icon,
+                        pid, pidPath: [pid], processName: gameData.name, start: Date.now(),
+                        exeName: gameData.exeName, exePath: gameData.exePath, cmdLine: gameData.cmdLine,
+                        executables: [{ os: 'win32', name: gameData.exeName, is_launcher: false }],
+                        windowHandle: 0, fullscreenType: 0, overlay: true, sandboxed: false,
+                        hidden: false, isLauncher: false
+                    };
+                    Patcher.add(game);
+
+                    const achieved = await new Promise(resolve => {
+                        let done = false;
+                        const cleanup = () => {
+                            if (done) return; done = true;
+                            try { Patcher.remove(game); } catch (_) {}
+                            try { Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check); } catch (_) {}
+                            RUNTIME.cleanups.delete(cleanup);
+                        };
+                        const timer = setTimeout(() => { cleanup(); resolve(false); }, 60000);
+                        const check = (d) => {
+                            if (!RUNTIME.running) { clearTimeout(timer); cleanup(); resolve(false); return; }
+                            if (d?.questId !== q.id) return;
+                            const prog = d.userStatus?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? 0;
+                            Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: prog, max: t.target, status: "RUNNING" });
+                            if (prog >= t.target) { clearTimeout(timer); cleanup(); resolve(true); }
+                        };
+                        Mods.Dispatcher?.subscribe(CONST.EVT.HEARTBEAT, check);
+                        RUNTIME.cleanups.add(cleanup);
+                    });
+
+                    if (achieved && RUNTIME.running) return Tasks.finish(q, t);
+                } catch (e) {
+                    Logger.log(`[Achievement] RPC injection failed: ${e.message}`, 'debug');
+                }
+            }
+
+            if (!RUNTIME.running) return;
+
+            // Strategy 3: passive — wait for user to join the activity manually
             Logger.log(`[Task] Action required: Join Activity to earn "${t.name}"`, 'warn');
             Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: 0, max: t.target, status: "RUNNING", actionRequired: true });
 
@@ -1186,28 +1241,21 @@
                     if (cleaned) return;
                     cleaned = true;
                     clearTimeout(safetyTimer);
-                    try { Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check); } catch (e) { }
+                    try { Mods.Dispatcher?.unsubscribe(CONST.EVT.HEARTBEAT, check); } catch (_) {}
                     RUNTIME.cleanups.delete(finish);
                 };
 
                 safetyTimer = setTimeout(() => {
                     if (RUNTIME.running) Tasks.failTask(q, t, 'Timeout - achievement not earned');
-                    finish();
-                    resolve();
+                    finish(); resolve();
                 }, SYS.MAX_TIME);
 
                 const check = (d) => {
                     if (!RUNTIME.running) { finish(); resolve(); return; }
                     if (d?.questId !== q.id) return;
-
                     const prog = d.userStatus?.progress?.ACHIEVEMENT_IN_ACTIVITY?.value ?? 0;
                     Logger.updateTask(q.id, { name: t.name, type: "ACHIEVEMENT", cur: prog, max: t.target, status: "RUNNING" });
-
-                    if (prog >= t.target) {
-                        finish();
-                        Tasks.finish(q, t);
-                        resolve();
-                    }
+                    if (prog >= t.target) { finish(); Tasks.finish(q, t); resolve(); }
                 };
 
                 Mods.Dispatcher?.subscribe(CONST.EVT.HEARTBEAT, check);

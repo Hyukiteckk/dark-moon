@@ -1,7 +1,8 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, dialog } = require("electron");
 const path = require("path");
 const { fork } = require("child_process");
 const http = require("http");
+const { autoUpdater } = require("electron-updater");
 
 let win = null;
 let serverProcess = null;
@@ -41,8 +42,28 @@ function createWindow(port) {
 
 app.whenReady().then(() => {
   const serverPath = path.join(__dirname, "..", "server.js");
+
+  // No app compilado usa AppData para dados graváveis; em dev usa data/ local.
+  const dataRoot = app.isPackaged
+    ? path.join(app.getPath("userData"), "data")
+    : path.join(__dirname, "..", "data");
+
+  const helperExe = app.isPackaged
+    ? path.join(process.resourcesPath, "quest_helper.exe")
+    : path.join(__dirname, "..", "data", "quest_helper.exe");
+
   serverProcess = fork(serverPath, [], {
-    env: { ...process.env, PORT: String(serverPort), ELECTRON_MODE: "1" },
+    env: {
+      ...process.env,
+      PORT: String(serverPort),
+      ELECTRON_MODE: "1",
+      ELECTRON_RUN_AS_NODE: "1",
+      DATA_ROOT: dataRoot,
+      HELPER_EXE: helperExe,
+      BOT_SERVICE_URL: "https://darkmoon-bot.abinhomartins.workers.dev",
+      BOT_SECRET: "26f70cce3ca6923f90e821d313ded9be9640f1b8f6f196a6122d3d9a84d54362",
+    },
+    execPath: process.execPath,
     stdio: "pipe",
   });
   serverProcess.stdout?.on("data", (d) => process.stdout.write(d));
@@ -75,4 +96,32 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   if (serverProcess) serverProcess.kill();
+});
+
+// ─── AUTO UPDATER ───
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+autoUpdater.on("update-downloaded", async () => {
+  const { response } = await dialog.showMessageBox({
+    type: "info",
+    title: "Dark Moon — Atualização pronta",
+    message: "Nova versão baixada!",
+    detail: "A atualização foi baixada. Deseja reiniciar agora para instalar?",
+    buttons: ["Reiniciar agora", "Mais tarde"],
+    defaultId: 0,
+    icon: path.join(__dirname, "..", "build-assets", "icon.png"),
+  });
+  if (response === 0) autoUpdater.quitAndInstall();
+});
+
+autoUpdater.on("error", (err) => {
+  console.error("[updater]", err?.message ?? err);
+});
+
+app.whenReady().then(() => {
+  // Verifica atualização 6s após iniciar (só no app compilado)
+  if (app.isPackaged) {
+    setTimeout(() => autoUpdater.checkForUpdates(), 6000);
+  }
 });
