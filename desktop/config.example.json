@@ -1,4 +1,6 @@
 {
   "BOT_SERVICE_URL": "https://seu-worker.seu-subdominio.workers.dev",
-  "BOT_SECRET": "a-mesma-chave-configurada-no-worker"
+  "BOT_SECRET": "a-mesma-chave-configurada-no-worker",
+  "TURNSTILE_SECRET": "sua-secret-key-do-turnstile",
+  "TURNSTILE_SITE_KEY": "sua-site-key-do-turnstile"
 }

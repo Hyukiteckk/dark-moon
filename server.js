@@ -15,6 +15,20 @@ import { startFakeProcess, stopFakeProcess, getFakeStatus } from "./fakeProcess.
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
+// ── Rate limiting para cadastro (3 tentativas por IP a cada 24h) ─────────────
+const _regAttempts = new Map();
+function checkRegisterRateLimit(ip) {
+  const now = Date.now();
+  const entry = _regAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    _regAttempts.set(ip, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
+    return true;
+  }
+  if (entry.count >= 3) return false;
+  entry.count++;
+  return true;
+}
+
 // ── Discord approval bot integration (Cloudflare Worker) ─────────────────────
 const BOT_SERVICE_URL = process.env.BOT_SERVICE_URL || "";
 const BOT_SECRET      = process.env.BOT_SECRET      || "";
@@ -128,8 +142,28 @@ app.get("/api/open-bd-plugins", requireAuth, async (_req, res) => {
 });
 
 // Auth
-app.post("/api/auth/register", (req, res) => {
-  const { username, password } = req.body || {};
+app.post("/api/auth/register", async (req, res) => {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
+  if (!checkRegisterRateLimit(ip))
+    return res.status(429).json({ error: "Muitas tentativas. Tente novamente em 24 horas." });
+
+  const { username, password, turnstileToken } = req.body || {};
+
+  if (process.env.TURNSTILE_SECRET) {
+    if (!turnstileToken) return res.status(400).json({ error: "Verificação de segurança obrigatória." });
+    try {
+      const verify = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET, response: turnstileToken }),
+      });
+      const result = await verify.json();
+      if (!result.success) return res.status(400).json({ error: "Falha na verificação de segurança." });
+    } catch {
+      return res.status(500).json({ error: "Erro ao verificar CAPTCHA." });
+    }
+  }
+
   const out = registerUser(username, password);
   if (!out.ok) return res.status(400).json({ error: out.error });
   if (!out.user.approved) {

@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dark Moon</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 
 <body>
@@ -74,6 +75,7 @@
           <label>ID do Discord <span style="color:#8b6ab5;font-size:.75rem">(opcional)</span></label>
           <input id="reg-discord-id" type="text" placeholder="Ex: 123456789012345678" autocomplete="off" />
         </div>
+        <div id="turnstile-widget" class="cf-turnstile" data-sitekey="0x4AAAAAADUwP4LZVx-v5jau" data-theme="dark"></div>
         <div id="register-error" class="auth-error"></div>
         <div id="register-info" class="auth-info hidden"></div>
         <button id="btn-register" class="btn-primary w-full">Criar conta</button>

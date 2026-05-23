@@ -147,9 +147,10 @@ async function doRegister() {
   const password        = $("reg-password").value;
   const discordUsername = $("reg-discord-username")?.value.trim() || "";
   const discordId       = $("reg-discord-id")?.value.trim() || "";
+  const turnstileToken  = document.querySelector("#turnstile-widget [name=cf-turnstile-response]")?.value || "";
   if (!username || !password) { errEl.textContent = "Preencha todos os campos."; return; }
   setLoading(btn, true);
-  const res = await api("/api/auth/register", { username, password, discordUsername, discordId });
+  const res = await api("/api/auth/register", { username, password, discordUsername, discordId, turnstileToken });
   setLoading(btn, false);
   if (res.error) { errEl.textContent = res.error; return; }
   if (res.pendingApproval) {
