@@ -31,7 +31,7 @@ export function registerUser(username, password) {
 
   const data = loadUsers();
   if (data.users.find((x) => x.username.toLowerCase() === u.toLowerCase())) {
-    return { ok: false, error: "Username já em uso." };
+    return { ok: false, error: "Usuário Já Cadastrado." };
   }
 
   const isFirst = data.users.length === 0;
