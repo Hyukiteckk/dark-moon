@@ -409,6 +409,18 @@ html, body {
 
 .sidebar-footer { padding: 8px; border-top: 1px solid var(--border); }
 
+/* ── Admin panel ── */
+.admin-user-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.admin-user-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(168,85,247,.06); border: 1px solid var(--border); border-radius: 8px; gap: 12px; }
+.admin-user-info { display: flex; flex-direction: column; gap: 2px; }
+.admin-user-name { font-weight: 600; color: var(--text); font-size: .9rem; }
+.admin-user-meta { font-size: .75rem; color: var(--text-dim); }
+.admin-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-approve { background: rgba(59,165,92,.15); border: 1px solid rgba(59,165,92,.4); color: #3ba55c; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: .8rem; transition: background .15s; }
+.btn-approve:hover { background: rgba(59,165,92,.28); }
+.btn-ban { background: rgba(240,71,71,.15); border: 1px solid rgba(240,71,71,.4); color: #f04747; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: .8rem; transition: background .15s; }
+.btn-ban:hover { background: rgba(240,71,71,.28); }
+
 /* ─── MAIN CONTENT ─── */
 .main-content {
   flex: 1; overflow-y: auto;

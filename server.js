@@ -144,7 +144,8 @@ app.get("/api/open-bd-plugins", requireAuth, async (_req, res) => {
 // Auth
 app.post("/api/auth/register", async (req, res) => {
   const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
-  if (!checkRegisterRateLimit(ip))
+  const isLocal = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+  if (!isLocal && !checkRegisterRateLimit(ip))
     return res.status(429).json({ error: "Muitas tentativas. Tente novamente em 24 horas." });
 
   const { username, password, turnstileToken } = req.body || {};
@@ -530,10 +531,20 @@ app.post("/api/admin/approve", requireAuth, requireOwner, (req, res) => {
   res.json({ ok: true });
 });
 app.get("/api/admin/users", requireAuth, requireOwner, (req, res) => res.json({ users: listAllUsersSafe() }));
-app.post("/api/admin/revoke", requireAuth, requireOwner, (req, res) => {
-  const out = revokeUser(String(req.body?.userId || ""));
+app.post("/api/admin/revoke", requireAuth, requireOwner, async (req, res) => {
+  const uid = String(req.body?.userId || "");
+  const out = revokeUser(uid);
   if (!out.ok) return res.status(400).json({ error: out.error });
+  try { await removeRuntimeForUser(uid); } catch {}
   res.json({ ok: true });
+});
+
+app.post("/api/admin/ban", requireAuth, requireOwner, async (req, res) => {
+  const uid = String(req.body?.userId || "");
+  const out = revokeUser(uid);
+  if (!out.ok) return res.status(400).json({ error: out.error });
+  try { await removeRuntimeForUser(uid); } catch {}
+  res.json({ ok: true, banned: true });
 });
 app.post("/api/admin/delete", requireAuth, requireOwner, async (req, res) => {
   try {

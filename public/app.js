@@ -174,6 +174,9 @@ function enterApp() {
   $("auth-screen").classList.add("hidden");
   $("app-screen").classList.remove("hidden");
   renderSidebarProfile();
+  if (state.user?.role === "owner") {
+    $("nav-admin-wrap")?.classList.remove("hidden");
+  }
   switchTab("overview");
   refreshStatus();
 }
@@ -211,6 +214,7 @@ function switchTab(tab) {
   if (tab === "moderation") { wireMod(); syncGlobalTokenToTab("mod-token"); }
   if (tab === "investigate") wireInvestigate();
   if (tab === "nuke") { wireNuke(); syncGlobalTokenToTab("nuke-token"); }
+  if (tab === "admin") loadAdminPanel();
   if (tab === "conversations") { wireConversations(); syncGlobalTokenToTab("conv-token"); }
   if (tab === "logs") wireLogs();
   if (tab === "history") { wireHistory(); loadQuestHistory(); }
@@ -1904,4 +1908,59 @@ function showConfirm({ title, body, confirmLabel = "Confirmar", danger = true })
     document.getElementById("dm-modal-cancel").addEventListener("click",  () => cleanup(false), { once: true });
     overlay.addEventListener("click", (e) => { if (e.target === overlay) cleanup(false); }, { once: true });
   });
+}
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+async function loadAdminPanel() {
+  const [pendingRes, allRes] = await Promise.all([
+    api("/api/admin/pending"),
+    api("/api/admin/users"),
+  ]);
+
+  const pendingEl = $("admin-pending-list");
+  const allEl     = $("admin-all-list");
+
+  if (pendingRes.users?.length) {
+    pendingEl.innerHTML = pendingRes.users.map(u => `
+      <div class="admin-user-row" id="pending-row-${u.id}">
+        <div class="admin-user-info">
+          <span class="admin-user-name">${esc(u.username)}</span>
+          <span class="admin-user-meta">ID: ${u.id}</span>
+        </div>
+        <div class="admin-actions">
+          <button class="btn-approve" onclick="adminApprove('${u.id}')">✅ Aprovar</button>
+          <button class="btn-ban"     onclick="adminBan('${u.id}', '${esc(u.username)}')">🚫 Rejeitar</button>
+        </div>
+      </div>`).join("");
+  } else {
+    pendingEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum cadastro pendente.</span>";
+  }
+
+  if (allRes.users?.length) {
+    allEl.innerHTML = allRes.users.map(u => `
+      <div class="admin-user-row" id="all-row-${u.id}">
+        <div class="admin-user-info">
+          <span class="admin-user-name">${esc(u.username)} ${u.role === "owner" ? "<span style='color:var(--purple);font-size:.7rem'>[owner]</span>" : ""}</span>
+          <span class="admin-user-meta">${u.approved ? "✅ Ativo" : "⏳ Pendente"} • ID: ${u.id.split("-")[0]}</span>
+        </div>
+        <div class="admin-actions">
+          ${u.role !== "owner" ? `<button class="btn-ban" onclick="adminBan('${u.id}', '${esc(u.username)}')">🚫 Banir</button>` : ""}
+        </div>
+      </div>`).join("");
+  } else {
+    allEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum usuário.</span>";
+  }
+}
+
+async function adminApprove(userId) {
+  const res = await api("/api/admin/approve", { userId });
+  if (res.ok) loadAdminPanel();
+  else alert(res.error || "Erro ao aprovar.");
+}
+
+async function adminBan(userId, username) {
+  if (!confirm(`Banir "${username}"? Todos os serviços serão encerrados.`)) return;
+  const res = await api("/api/admin/ban", { userId });
+  if (res.ok) loadAdminPanel();
+  else alert(res.error || "Erro ao banir.");
 }
