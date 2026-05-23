@@ -143,11 +143,13 @@ async function doRegister() {
   const infoEl = $("register-info");
   errEl.textContent = "";
   infoEl.classList.add("hidden");
-  const username = $("reg-username").value.trim();
-  const password = $("reg-password").value;
+  const username        = $("reg-username").value.trim();
+  const password        = $("reg-password").value;
+  const discordUsername = $("reg-discord-username")?.value.trim() || "";
+  const discordId       = $("reg-discord-id")?.value.trim() || "";
   if (!username || !password) { errEl.textContent = "Preencha todos os campos."; return; }
   setLoading(btn, true);
-  const res = await api("/api/auth/register", { username, password });
+  const res = await api("/api/auth/register", { username, password, discordUsername, discordId });
   setLoading(btn, false);
   if (res.error) { errEl.textContent = res.error; return; }
   if (res.pendingApproval) {

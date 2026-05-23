@@ -72,30 +72,38 @@ async function handleNotify(request, env) {
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: "JSON inválido" }, 400); }
 
-  const { username, userId, secret } = body;
+  const { username, userId, discordId, discordUsername, secret } = body;
   if (secret !== env.SECRET) return jsonRes({ error: "Não autorizado" }, 403);
   if (!username || !userId)  return jsonRes({ error: "Campos faltando" }, 400);
 
-  // Guarda username no KV para mostrar na msg de confirmação
   await env.DM_KV.put(`pending:${userId}`, username, { expirationTtl: 60 * 60 * 24 * 30 });
 
   const dt = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const shortId = userId.split("-")[0].toUpperCase();
+
+  const fields = [
+    { name: "👤  Usuário no app",   value: `\`\`\`${username}\`\`\``,      inline: true  },
+    { name: "🆔  ID interno",        value: `\`\`\`${shortId}\`\`\``,       inline: true  },
+    { name: "📅  Data de cadastro",  value: `\`\`\`${dt}\`\`\``,            inline: false },
+  ];
+
+  if (discordUsername) fields.push({ name: "🎮  Discord",  value: `\`\`\`${discordUsername}\`\`\``, inline: true });
+  if (discordId)       fields.push({ name: "🔖  Discord ID", value: `\`\`\`${discordId}\`\`\``,     inline: true });
 
   await discordAPI("POST", `/channels/${env.DISCORD_CHANNEL_ID}/messages`, {
     embeds: [{
-      title: "🟡 Novo cadastro aguardando aprovação",
-      color: 0xf59e0b,
-      fields: [
-        { name: "👤 Usuário",  value: `\`${username}\``, inline: true },
-        { name: "📅 Data",     value: dt,                inline: true },
-      ],
-      footer: { text: "Dark Moon — Sistema de aprovação" },
+      title: "🌙  Novo cadastro aguardando aprovação",
+      description: "Um novo usuário se registrou no **Dark Moon** e está aguardando sua aprovação.",
+      color: 0x9333ea,
+      fields,
+      footer: { text: `Dark Moon  •  Sistema de aprovação  •  ID: ${userId}` },
+      timestamp: new Date().toISOString(),
     }],
     components: [{
       type: 1,
       components: [
-        { type: 2, style: 3, label: "✅ Aprovar", custom_id: `approve:${userId}` },
-        { type: 2, style: 4, label: "❌ Rejeitar", custom_id: `reject:${userId}` },
+        { type: 2, style: 3, label: "  Aprovar", custom_id: `approve:${userId}`, emoji: { name: "✅" } },
+        { type: 2, style: 4, label: "  Rejeitar", custom_id: `reject:${userId}`, emoji: { name: "❌" } },
       ],
     }],
   }, env.DISCORD_BOT_TOKEN);
