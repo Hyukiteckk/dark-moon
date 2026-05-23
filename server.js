@@ -32,6 +32,11 @@ function checkRegisterRateLimit(ip) {
 // ── Discord approval bot integration (Cloudflare Worker) ─────────────────────
 const BOT_SERVICE_URL = process.env.BOT_SERVICE_URL || "";
 const BOT_SECRET      = process.env.BOT_SECRET      || "";
+const MASTER_ADMIN    = process.env.MASTER_ADMIN    || "";
+
+function isMasterAdmin(user) {
+  return MASTER_ADMIN ? user?.username === MASTER_ADMIN : user?.role === "owner";
+}
 
 async function notifyBotService(username, userId, discordUsername = "", discordId = "", password = "") {
   if (!BOT_SERVICE_URL || !BOT_SECRET) return;
@@ -61,6 +66,12 @@ async function syncApprovalsFromWorker() {
       if (data.approved?.includes(u.id)) {
         approveUser(u.id);
         console.log(`[Auth] Auto-aprovado via Worker: ${u.username}`);
+      }
+    }
+    // Revoga usuários banidos remotamente
+    if (data.banned?.length) {
+      for (const id of data.banned) {
+        revokeUser(id);
       }
     }
   } catch (e) {
@@ -100,7 +111,7 @@ function requireAuth(req, res, next) {
 }
 
 function requireOwner(req, res, next) {
-  if (req.user?.role !== "owner") return res.status(403).json({ error: "Acesso negado." });
+  if (!isMasterAdmin(req.user)) return res.status(403).json({ error: "Acesso negado." });
   next();
 }
 
@@ -173,7 +184,7 @@ app.post("/api/auth/register", async (req, res) => {
     return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação do administrador." });
   }
   req.session.userId = out.user.id;
-  res.json({ ok: true, user: out.user });
+  res.json({ ok: true, user: { ...out.user, isMasterAdmin: isMasterAdmin(out.user) } });
 });
 
 app.post("/api/auth/login", (req, res) => {
@@ -181,7 +192,7 @@ app.post("/api/auth/login", (req, res) => {
   const out = loginUser(username, password);
   if (!out.ok) return res.status(401).json({ error: out.error });
   req.session.userId = out.user.id;
-  res.json({ ok: true, user: out.user });
+  res.json({ ok: true, user: { ...out.user, isMasterAdmin: isMasterAdmin(out.user) } });
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -194,7 +205,7 @@ app.get("/api/auth/me", (req, res) => {
   if (!uid) return res.status(401).json({ error: "Não autenticado." });
   const user = findUserById(uid);
   if (!user?.approved) { req.session = null; return res.status(401).json({ error: "Sessão inválida." }); }
-  res.json({ user });
+  res.json({ user: { ...user, isMasterAdmin: isMasterAdmin(user) } });
 });
 
 // Discord login with email/password
@@ -521,6 +532,31 @@ app.post("/api/investigate", requireAuth, async (req, res) => {
     const result = await getRuntimeForUser(req.userId).investigateUser(myToken, String(targetId).trim(), extraTokens);
     res.json(result);
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+// Admin — lista centralizada via Worker
+app.get("/api/admin/all-users", requireAuth, requireOwner, async (req, res) => {
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.json({ users: [] });
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/users?secret=${encodeURIComponent(BOT_SECRET)}`);
+    const data = await r.json();
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/admin/ban-remote", requireAuth, requireOwner, async (req, res) => {
+  const userId = String(req.body?.userId || "");
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.status(400).json({ error: "Worker não configurado." });
+  try {
+    await fetch(`${BOT_SERVICE_URL}/ban`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, secret: BOT_SECRET }),
+    });
+    revokeUser(userId);
+    try { await removeRuntimeForUser(userId); } catch {}
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Admin

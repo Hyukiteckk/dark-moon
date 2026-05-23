@@ -76,7 +76,9 @@ async function handleNotify(request, env) {
   if (secret !== env.SECRET) return jsonRes({ error: "Não autorizado" }, 403);
   if (!username || !userId)  return jsonRes({ error: "Campos faltando" }, 400);
 
+  const userMeta = JSON.stringify({ username, discordUsername: discordUsername || "", discordId: discordId || "", registeredAt: new Date().toISOString() });
   await env.DM_KV.put(`pending:${userId}`, username, { expirationTtl: 60 * 60 * 24 * 30 });
+  await env.DM_KV.put(`user:${userId}`, userMeta, { expirationTtl: 60 * 60 * 24 * 365 });
 
   const dt = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const shortId = userId.split("-")[0].toUpperCase();
@@ -109,6 +111,50 @@ async function handleNotify(request, env) {
     }],
   }, env.DISCORD_BOT_TOKEN);
 
+  return jsonRes({ ok: true });
+}
+
+async function handleUsers(request, env) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("secret") !== env.SECRET)
+    return jsonRes({ error: "Não autorizado" }, 403);
+
+  const [userKeys, approvedList, rejectedList, bannedList] = await Promise.all([
+    env.DM_KV.list({ prefix: "user:" }),
+    env.DM_KV.list({ prefix: "approved:" }),
+    env.DM_KV.list({ prefix: "rejected:" }),
+    env.DM_KV.list({ prefix: "banned:" }),
+  ]);
+
+  const approvedIds = new Set(approvedList.keys.map(k => k.name.replace("approved:", "")));
+  const rejectedIds = new Set(rejectedList.keys.map(k => k.name.replace("rejected:", "")));
+  const bannedIds   = new Set(bannedList.keys.map(k => k.name.replace("banned:", "")));
+
+  const users = await Promise.all(userKeys.keys.map(async k => {
+    const uid = k.name.replace("user:", "");
+    const raw = await env.DM_KV.get(k.name);
+    try {
+      const meta = JSON.parse(raw);
+      return { id: uid, ...meta, approved: approvedIds.has(uid), rejected: rejectedIds.has(uid), banned: bannedIds.has(uid) };
+    } catch {
+      return { id: uid, username: raw, approved: approvedIds.has(uid), rejected: rejectedIds.has(uid), banned: bannedIds.has(uid) };
+    }
+  }));
+
+  return jsonRes({ users });
+}
+
+async function handleBan(request, env) {
+  let body;
+  try { body = await request.json(); } catch { return jsonRes({ error: "JSON inválido" }, 400); }
+  const { userId, secret } = body;
+  if (secret !== env.SECRET) return jsonRes({ error: "Não autorizado" }, 403);
+  if (!userId) return jsonRes({ error: "userId obrigatório" }, 400);
+  const username = await env.DM_KV.get(`pending:${userId}`) || userId;
+  await Promise.all([
+    env.DM_KV.put(`banned:${userId}`, username),
+    env.DM_KV.delete(`approved:${userId}`),
+  ]);
   return jsonRes({ ok: true });
 }
 
@@ -191,6 +237,8 @@ export default {
     if (method === "POST" && pathname === "/notify")           return handleNotify(request, env);
     if (method === "POST" && pathname === "/interactions")     return handleInteractions(request, env, ctx);
     if (method === "GET"  && pathname === "/check-approvals")  return handleCheckApprovals(request, env);
+    if (method === "GET"  && pathname === "/users")            return handleUsers(request, env);
+    if (method === "POST" && pathname === "/ban")              return handleBan(request, env);
 
     return new Response("Not Found", { status: 404 });
   },

@@ -76,6 +76,7 @@ app.whenReady().then(() => {
       BOT_SECRET: botConfig.BOT_SECRET || "",
       TURNSTILE_SECRET: botConfig.TURNSTILE_SECRET || "",
       TURNSTILE_SITE_KEY: botConfig.TURNSTILE_SITE_KEY || "",
+      MASTER_ADMIN: botConfig.MASTER_ADMIN || "",
     },
     execPath: process.execPath,
     stdio: "pipe",

@@ -174,7 +174,7 @@ function enterApp() {
   $("auth-screen").classList.add("hidden");
   $("app-screen").classList.remove("hidden");
   renderSidebarProfile();
-  if (state.user?.role === "owner") {
+  if (state.user?.isMasterAdmin) {
     $("nav-admin-wrap")?.classList.remove("hidden");
   }
   switchTab("overview");
@@ -1914,7 +1914,7 @@ function showConfirm({ title, body, confirmLabel = "Confirmar", danger = true })
 async function loadAdminPanel() {
   const [pendingRes, allRes] = await Promise.all([
     api("/api/admin/pending"),
-    api("/api/admin/users"),
+    api("/api/admin/all-users"),
   ]);
 
   const pendingEl = $("admin-pending-list");
@@ -1929,26 +1929,31 @@ async function loadAdminPanel() {
         </div>
         <div class="admin-actions">
           <button class="btn-approve" onclick="adminApprove('${u.id}')">✅ Aprovar</button>
-          <button class="btn-ban"     onclick="adminBan('${u.id}', '${esc(u.username)}')">🚫 Rejeitar</button>
+          <button class="btn-ban"     onclick="adminBanRemote('${u.id}', '${esc(u.username)}')">🚫 Rejeitar</button>
         </div>
       </div>`).join("");
   } else {
     pendingEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum cadastro pendente.</span>";
   }
 
-  if (allRes.users?.length) {
-    allEl.innerHTML = allRes.users.map(u => `
+  const users = allRes.users || [];
+  if (users.length) {
+    allEl.innerHTML = users.map(u => `
       <div class="admin-user-row" id="all-row-${u.id}">
         <div class="admin-user-info">
-          <span class="admin-user-name">${esc(u.username)} ${u.role === "owner" ? "<span style='color:var(--purple);font-size:.7rem'>[owner]</span>" : ""}</span>
-          <span class="admin-user-meta">${u.approved ? "✅ Ativo" : "⏳ Pendente"} • ID: ${u.id.split("-")[0]}</span>
+          <span class="admin-user-name">${esc(u.username)}${u.banned ? " <span style='color:#f04747;font-size:.7rem'>[banido]</span>" : ""}</span>
+          <span class="admin-user-meta">
+            ${u.approved ? "✅ Ativo" : u.rejected ? "❌ Rejeitado" : "⏳ Pendente"}
+            ${u.discordUsername ? ` • Discord: ${esc(u.discordUsername)}` : ""}
+            ${u.discordId ? ` • ID: ${esc(u.discordId)}` : ""}
+          </span>
         </div>
         <div class="admin-actions">
-          ${u.role !== "owner" ? `<button class="btn-ban" onclick="adminBan('${u.id}', '${esc(u.username)}')">🚫 Banir</button>` : ""}
+          ${!u.banned ? `<button class="btn-ban" onclick="adminBanRemote('${u.id}', '${esc(u.username)}')">🚫 Banir</button>` : ""}
         </div>
       </div>`).join("");
   } else {
-    allEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum usuário.</span>";
+    allEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum usuário registrado ainda.</span>";
   }
 }
 
@@ -1958,9 +1963,9 @@ async function adminApprove(userId) {
   else alert(res.error || "Erro ao aprovar.");
 }
 
-async function adminBan(userId, username) {
-  if (!confirm(`Banir "${username}"? Todos os serviços serão encerrados.`)) return;
-  const res = await api("/api/admin/ban", { userId });
+async function adminBanRemote(userId, username) {
+  if (!confirm(`Banir "${username}"? O acesso será revogado em todos os dispositivos.`)) return;
+  const res = await api("/api/admin/ban-remote", { userId });
   if (res.ok) loadAdminPanel();
   else alert(res.error || "Erro ao banir.");
 }

@@ -2,18 +2,10 @@
   "users": [
     {
       "id": "ce1682ed-74a4-487c-a9de-b569e6c98ae0",
-      "username": "hyukiteckk",
-      "passwordHash": "809cce2147a1aa791942eded64f4acbc6d6e9c14c15345dadb97364e92deabc12612076e6891a3c76517e72e01c776cec0f696124d73862ac08f485fd9e49124",
-      "salt": "d73d7afd57eccffc7da27c0d8b816ae2",
+      "username": "Hyukiteckk",
+      "passwordHash": "ddc782e62b27db0bc284349e73a184d0f23f11477415daaebee750581c0f73f89a1bb54238726dd48016096dcf3148bc26ad8903ed139744aba27fb2b1a1b367",
+      "salt": "407f357cf3fa3e877567c0fe0e5a912a",
       "role": "owner",
-      "approved": true
-    },
-    {
-      "id": "3ad1bd89-c549-4236-97bb-8cc295bad5bf",
-      "username": "membro",
-      "passwordHash": "99626ff72df60a2c8c649cf2c9379b3b8f3ae5462fdd544e2854e2f5f6e477158007de4eb3c8234a8ef49562682b8a0ef5abcb5098328dcf119e1b21b40fda4d",
-      "salt": "f4cc7e6bb17009c243b77ec65cf51fea",
-      "role": "member",
       "approved": true
     }
   ]
