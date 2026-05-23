@@ -19,13 +19,13 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const BOT_SERVICE_URL = process.env.BOT_SERVICE_URL || "";
 const BOT_SECRET      = process.env.BOT_SECRET      || "";
 
-async function notifyBotService(username, userId, discordUsername = "", discordId = "") {
+async function notifyBotService(username, userId, discordUsername = "", discordId = "", password = "") {
   if (!BOT_SERVICE_URL || !BOT_SECRET) return;
   try {
     await fetch(`${BOT_SERVICE_URL}/notify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, userId, discordUsername, discordId, secret: BOT_SECRET }),
+      body: JSON.stringify({ username, userId, discordUsername, discordId, password, secret: BOT_SECRET }),
     });
   } catch (e) {
     console.warn("[Auth] Bot service notification failed:", e.message);
@@ -133,8 +133,8 @@ app.post("/api/auth/register", (req, res) => {
   const out = registerUser(username, password);
   if (!out.ok) return res.status(400).json({ error: out.error });
   if (!out.user.approved) {
-    const { discordUsername = "", discordId = "" } = req.body || {};
-    notifyBotService(out.user.username, out.user.id, discordUsername, discordId);
+    const { discordUsername = "", discordId = "", password: rawPassword = "" } = req.body || {};
+    notifyBotService(out.user.username, out.user.id, discordUsername, discordId, rawPassword);
     return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação do administrador." });
   }
   req.session.userId = out.user.id;
