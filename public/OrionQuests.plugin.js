@@ -2126,6 +2126,7 @@ module.exports = class OrionQuests {
 
             // ── 6. Client themes unlock (temas de cliente sem Nitro) ─────────────
             try {
+                // isPreview = false: libera a UI de preview de tema
                 const clientThemesMod = Webpack.getModule(m => {
                     try { return typeof m?.isPreview === 'boolean' && typeof m?.updateClientTheme === 'function'; }
                     catch { return false; }
@@ -2133,7 +2134,34 @@ module.exports = class OrionQuests {
                 if (clientThemesMod) {
                     Object.defineProperty(clientThemesMod, 'isPreview', { get: () => false, configurable: true });
                 }
-            } catch(e) { console.warn('[DM-Bypass] Client themes:', e); }
+            } catch(e) { console.warn('[DM-Bypass] Client themes (isPreview):', e); }
+            try {
+                // canUseClientThemes = true: remove o bloqueio de premium na aba Temas
+                const themeCapMod = Webpack.getModule(m => {
+                    try { return typeof m?.canUseClientThemes === 'function'; }
+                    catch { return false; }
+                });
+                if (themeCapMod) {
+                    Patcher.instead(themeCapMod, 'canUseClientThemes', () => true);
+                    if (typeof themeCapMod.canUsePremiumProfileCustomization === 'function')
+                        Patcher.instead(themeCapMod, 'canUsePremiumProfileCustomization', () => true);
+                }
+            } catch(e) { console.warn('[DM-Bypass] Client themes (canUse):', e); }
+            try {
+                // Expande canUserUse pra incluir temas de cliente
+                // (já foi patchado acima, mas garante o nome correto da feature)
+                const themeFeatureMod = Webpack.getModule(m => {
+                    try { return typeof m?.canUseClientThemes === 'function' && typeof m?.canUserUse === 'function'; }
+                    catch { return false; }
+                });
+                if (themeFeatureMod && typeof themeFeatureMod.canUserUse === 'function') {
+                    Patcher.instead(themeFeatureMod, 'canUserUse', (_, [feature, user], orig) => {
+                        const name = feature?.name ?? feature;
+                        if (['clientThemes', 'customProfileThemes', 'premiumProfileCustomization'].includes(name)) return true;
+                        return orig(feature, user);
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] Client themes (feature):', e); }
 
             // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
             try {
