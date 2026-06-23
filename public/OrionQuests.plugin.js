@@ -1,15 +1,16 @@
 ﻿/**
  * @name Dark-moonQuest
- * @description Conclusão automática de missões Discord. Abre o painel automaticamente ao iniciar o Discord.
- * @version 1.0.0
+ * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
+ * @version 1.1.0
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
-    constructor() { this._pollTimer = null; this._flushTimer = null; }
+    constructor() { this._pollTimer = null; this._flushTimer = null; this._bdPatcher = null; }
 
     start() {
         window.orionLock = false;
         window._orionProgressQueue = [];
+        this._applyNitroBypasses();
 
         this._pollTimer = setInterval(async () => {
             try {
@@ -1928,14 +1929,117 @@ module.exports = class OrionQuests {
         window.orionLock = false;
         try { document.getElementById('orion-ui')?.remove(); } catch {}
         try { document.getElementById('orion-styles')?.remove(); } catch {}
+        if (this._bdPatcher) { try { this._bdPatcher.unpatchAll(); } catch {} this._bdPatcher = null; }
+    }
+
+    _applyNitroBypasses() {
+        try {
+            const { Patcher, Webpack } = new BdApi("Dark-moonQuest");
+            this._bdPatcher = Patcher;
+
+            // ── 1. Desbloqueia emojis no picker (sem ícone de cadeado) ──────────
+            try {
+                const emojiMod = Webpack.getByKeys("isEmojiFilteredOrLocked", "isEmojiDisabled");
+                if (emojiMod) {
+                    ['isEmojiFilteredOrLocked', 'isEmojiDisabled', 'isEmojiFiltered', 'isEmojiPremiumLocked'].forEach(fn => {
+                        if (typeof emojiMod[fn] === 'function') Patcher.instead(emojiMod, fn, () => false);
+                    });
+                    if (typeof emojiMod.getEmojiUnavailableReason === 'function')
+                        Patcher.instead(emojiMod, "getEmojiUnavailableReason", () => undefined);
+                }
+            } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
+
+            // ── 2. Envia emoji cross-server como hyperlink (visível pra todos) ──
+            try {
+                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage");
+                const AvatarDefaults = Webpack.getByKeys("getEmojiURL");
+                if (MsgActions && AvatarDefaults) {
+                    Patcher.before(MsgActions, "sendMessage", (_, [channelId, msg]) => {
+                        if (!msg?.validNonShortcutEmojis?.length) return;
+                        let iter = 0;
+                        msg.validNonShortcutEmojis.forEach(emoji => {
+                            if (!emoji?.id || emoji.type === 'UNICODE' || emoji.managed) return;
+                            let url = AvatarDefaults.getEmojiURL({ ...emoji, forcePNG: !emoji.animated });
+                            if (emoji.animated) url = url.replace(/\.(webp|png)(\?|$)/, '.gif$2');
+                            const emojiStr = `<${emoji.animated ? 'a:' : ':'}${emoji.name}:${emoji.id}>`;
+                            if (msg.content.includes('-' + emojiStr)) {
+                                msg.content = msg.content.replace('-' + emojiStr, emojiStr);
+                                return;
+                            }
+                            iter++;
+                            const cleanUrl = url.split('?')[0] + `?size=64&quality=lossless&_=${iter}`;
+                            msg.content = msg.content.replace(emojiStr, `[${emoji.name}](${cleanUrl})`);
+                        });
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] Emoji send:', e); }
+
+            // ── 3. Desbloqueia upload até 100MB ─────────────────────────────────
+            try {
+                const fileMod = Webpack.getModule(m => {
+                    try { return typeof m?.getMaxFileSize === 'function' && typeof m?.exceedsMessageSizeLimit === 'function'; }
+                    catch { return false; }
+                });
+                if (fileMod) {
+                    Patcher.instead(fileMod, "getMaxFileSize", () => 100 * 1024 * 1024);
+                    Patcher.instead(fileMod, "exceedsMessageSizeLimit", () => false);
+                }
+            } catch(e) { console.warn('[DM-Bypass] File size:', e); }
+
+            // ── 4. Stream 1080p/60fps sem Nitro ─────────────────────────────────
+            try {
+                const VideoQualityClass = Webpack.getByPrototypeKeys("updateVideoQuality");
+                if (VideoQualityClass?.prototype) {
+                    Patcher.before(VideoQualityClass.prototype, "updateVideoQuality", (thisArg) => {
+                        const params = thisArg.videoStreamParameters?.[0];
+                        if (!params) return;
+                        const quality = {
+                            width: Math.max(params.maxResolution?.width || 0, 1920),
+                            height: Math.max(params.maxResolution?.height || 0, 1080),
+                            framerate: Math.max(params.maxFrameRate || 0, 60),
+                        };
+                        if (quality.height <= 0) quality.height = 1080;
+                        if (quality.width <= 0) quality.width = 1920;
+                        const mgr = thisArg.videoQualityManager;
+                        if (mgr?.options) {
+                            mgr.options.videoBudget = quality;
+                            mgr.options.videoCapture = quality;
+                        }
+                        thisArg.remoteSinkWantsMaxFramerate = quality.framerate;
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] Stream quality:', e); }
+
+            // ── 5. Remove cadeado visual de features (picker, upsell) ───────────
+            try {
+                const canUseMod = Webpack.getModule(m => {
+                    try { return typeof m?.canUserUse === 'function' && m.canUserUse.toString().includes('getFeatureValue'); }
+                    catch { return false; }
+                });
+                if (canUseMod) {
+                    Patcher.instead(canUseMod, "canUserUse", (_, [feature, user], orig) => {
+                        if (['emojisEverywhere', 'animatedEmojis'].includes(feature?.name)) return true;
+                        return orig(feature, user);
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] CanUserUse:', e); }
+
+            console.log('[Dark-moonQuest] Nitro bypasses aplicados: emoji cross-server, upload 100MB, stream 1080p.');
+        } catch(e) {
+            console.error('[Dark-moonQuest] Falha ao aplicar bypasses:', e);
+        }
     }
 
     getSettingsPanel() {
         const div = document.createElement('div');
         div.style.cssText = 'padding:16px;color:#fff;font-family:sans-serif;';
-        div.innerHTML = '<b>Dark-moonQuest v1.0.0</b><br><br>' +
+        div.innerHTML = '<b>Dark-moonQuest v1.1.0</b><br><br>' +
             'O plugin aguarda o comando do Discord Manager (http://127.0.0.1:4100).<br><br>' +
-            '<span style="color:#faa61a">Modo: controlado pelo servidor</span> — use o botão Start/Stop no app para iniciar as missões.';
+            '<span style="color:#faa61a">Modo: controlado pelo servidor</span> — use o botão Start/Stop no app para iniciar as missões.<br><br>' +
+            '<b style="color:#3BA55C">Nitro Bypasses ativos:</b><br>' +
+            '✅ Emoji cross-server (sem Nitro)<br>' +
+            '✅ Upload até 100MB<br>' +
+            '✅ Stream 1080p/60fps';
         return div;
     }
 };
