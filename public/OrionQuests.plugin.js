@@ -2096,12 +2096,33 @@ module.exports = class OrionQuests {
                     catch { return false; }
                 });
                 if (canUseMod) {
+                    const BYPASS_FEATURES = [
+                        'emojisEverywhere', 'animatedEmojis',
+                        'highVideoResolutions', 'videoQuality', 'streamQuality',
+                        'highQualityStreaming', 'streamFPS', 'videoStreamFPS',
+                    ];
                     Patcher.instead(canUseMod, "canUserUse", (_, [feature, user], orig) => {
-                        if (['emojisEverywhere', 'animatedEmojis'].includes(feature?.name)) return true;
+                        const name = feature?.name ?? feature;
+                        if (BYPASS_FEATURES.includes(name)) return true;
                         return orig(feature, user);
                     });
                 }
             } catch(e) { console.warn('[DM-Bypass] CanUserUse:', e); }
+
+            // ── 5b. canUseHighVideoResolutions — bloqueio do picker de resolução ──
+            try {
+                const hiResMod = Webpack.getModule(m => {
+                    try { return typeof m?.canUseHighVideoResolutions === 'function'; }
+                    catch { return false; }
+                });
+                if (hiResMod) {
+                    Patcher.instead(hiResMod, 'canUseHighVideoResolutions', () => true);
+                    if (typeof hiResMod.canStreamHighQuality === 'function')
+                        Patcher.instead(hiResMod, 'canStreamHighQuality', () => true);
+                    if (typeof hiResMod.canUseHighFrameRate === 'function')
+                        Patcher.instead(hiResMod, 'canUseHighFrameRate', () => true);
+                }
+            } catch(e) { console.warn('[DM-Bypass] HighVideoRes:', e); }
 
             // ── 6. Client themes unlock (temas de cliente sem Nitro) ─────────────
             try {
@@ -2129,6 +2150,23 @@ module.exports = class OrionQuests {
                 });
                 if (premiumMod) Patcher.instead(premiumMod, 'openPremiumModal', () => {});
             } catch(e) { console.warn('[DM-Bypass] Premium modal:', e); }
+
+            // ── 7b. Suprime modal específico de qualidade de vídeo ───────────────
+            try {
+                const videoUpsellMod = Webpack.getModule(m => {
+                    try {
+                        return typeof m?.openPremiumVideoUpsellModal === 'function' ||
+                               typeof m?.maybeOpenVideoUpsellModal   === 'function';
+                    }
+                    catch { return false; }
+                });
+                if (videoUpsellMod) {
+                    if (typeof videoUpsellMod.openPremiumVideoUpsellModal === 'function')
+                        Patcher.instead(videoUpsellMod, 'openPremiumVideoUpsellModal', () => {});
+                    if (typeof videoUpsellMod.maybeOpenVideoUpsellModal === 'function')
+                        Patcher.instead(videoUpsellMod, 'maybeOpenVideoUpsellModal', () => {});
+                }
+            } catch(e) { console.warn('[DM-Bypass] Video upsell modal:', e); }
 
             console.log('[Dark-moonQuest] Nitro bypasses aplicados: emoji cross-server, upload 100MB, stream 1080p, temas de cliente.');
         } catch(e) {
