@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.0
+ * @version 1.2.1
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2202,6 +2202,25 @@ module.exports = class OrionQuests {
                     });
                 }
             } catch(e) { console.warn('[DM-Bypass] Client themes (feature):', e); }
+
+            // ── 6c. Persiste tema — intercepta PATCH de settings-proto ───────────
+            // Quando o usuário aplica um tema, Discord manda PATCH /settings-proto/1.
+            // O servidor rejeita (sem Nitro) e retorna as configs antigas → revert em ~5s.
+            // Fingindo sucesso, o cliente nunca recebe a resposta real e o tema permanece.
+            try {
+                const API = Webpack.getByKeys("get", "post", "patch", "put", "del");
+                if (API?.patch) {
+                    Patcher.instead(API, 'patch', (_, args, orig) => {
+                        const opts  = args[0];
+                        const url   = typeof opts === 'string' ? opts : (opts?.url ?? '');
+                        if (typeof url === 'string' && url.includes('settings-proto')) {
+                            // Resposta de sucesso falsa — impede o servidor de reverter o tema
+                            return Promise.resolve({ ok: true, body: {}, status: 200, text: '{}' });
+                        }
+                        return orig(...args);
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] Theme persist (settings-proto):', e); }
 
             // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
             try {
