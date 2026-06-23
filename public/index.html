@@ -5,6 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dark Moon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -81,7 +83,7 @@
         <button id="btn-register" class="btn-primary w-full">Criar conta</button>
       </div>
 
-      <p class="auth-footer">Dark Moon &copy; 2025</p>
+      <p class="auth-footer">Dark Moon &copy; 2026</p>
     </div>
 
   </div>
@@ -105,7 +107,7 @@
 116 100 115 98 115 132 0 52 -22 59 -186 58 -82 -1 -207 -6 -279 -10z"/>
           </g>
         </svg>
-        <span>DM</span>
+        <span class="sidebar-logo-text">Dark Moon</span>
       </div>
 
       <div class="sidebar-profile">
@@ -337,6 +339,14 @@
               <label>ID do Canal de Voz</label>
               <input id="call-channel" type="text" placeholder="000000000000000000" />
             </div>
+            <div style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12"/></svg>
+              <span style="font-size:.78rem;color:var(--green);font-weight:600">Padrão: entra desmutado e sem surdo</span>
+            </div>
+            <div class="field-group" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:4px">
+              <input type="checkbox" id="call-self-mute" style="width:auto;margin:0" />
+              <label for="call-self-mute" style="margin:0;cursor:pointer">Entrar Mutado <span style="color:var(--text-muted);font-size:.8rem">(mic desligado)</span></label>
+            </div>
             <div class="field-group" style="flex-direction:row;align-items:center;gap:8px;margin-bottom:4px">
               <input type="checkbox" id="call-fake-deaf" style="width:auto;margin:0" />
               <label for="call-fake-deaf" style="margin:0;cursor:pointer">Fake Deaf <span style="color:var(--text-muted);font-size:.8rem">(aparece surdo, ouve tudo)</span></label>
@@ -365,6 +375,23 @@
           <p class="page-sub">Apareça mutado/surdo enquanto continua ouvindo tudo na call</p>
         </div>
 
+        <!-- BetterDiscord card -->
+        <div class="bd-prereq-card mb-3">
+          <div class="bd-prereq-left">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.8">
+              <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+            </svg>
+            <div>
+              <div class="bd-prereq-title">BetterDiscord — Obrigatório</div>
+              <div class="bd-prereq-desc">Modificação gratuita do Discord que permite instalar plugins. Baixe, execute o instalador e reinicie o Discord — leva menos de 1 minuto.</div>
+            </div>
+          </div>
+          <button onclick="window.open('https://betterdiscord.app/')" class="bd-prereq-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Baixar BetterDiscord
+          </button>
+        </div>
+
         <!-- Plugin banner -->
         <div class="plugin-banner mb-3">
           <div class="plugin-banner-icon">
@@ -376,12 +403,16 @@
           <div class="plugin-banner-info">
             <div class="plugin-banner-name">
               SpyMode
-              <span class="badge-version">v11.0</span>
+              <span class="badge-version">v12.0</span>
               <span class="badge-platform">BetterDiscord</span>
             </div>
             <div class="plugin-banner-desc">Plugin para monitoramento silencioso de calls do Discord</div>
           </div>
           <div class="plugin-banner-actions">
+            <button onclick="window.open('https://betterdiscord.app/')" class="btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              BetterDiscord
+            </button>
             <a href="/SpyMode.plugin.js" download="SpyMode.plugin.js" class="btn-primary btn-sm" style="text-decoration:none;display:flex;align-items:center;gap:6px">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Baixar Plugin
@@ -394,34 +425,43 @@
         </div>
         <div id="fc-plugin-result" class="result-box hidden mb-3"></div>
 
-        <!-- Modo cards -->
-        <div class="mode-grid mb-3">
-          <div class="mode-card mode-card-highlight">
-            <div class="mode-card-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            </div>
-            <div class="mode-card-name">Modo Espião</div>
-            <div class="mode-card-desc">Mute + surdo simultâneos. Você continua ouvindo tudo normalmente.</div>
+        <!-- Controles -->
+        <div class="section-card mb-3">
+          <div class="card-header">
+            <h3>Controles</h3>
+            <span class="fc-status-badge">
+              <span class="fc-status-dot" id="fc-status-dot"></span>
+              <span id="fc-plugin-status">Aguardando call</span>
+            </span>
           </div>
-          <div class="mode-card">
-            <div class="mode-card-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <div class="fc-controls-grid">
+            <div class="fc-card" id="fc-row-spy" data-active="0">
+              <div class="fc-card-glow"></div>
+              <div class="fc-card-icon">🕵️</div>
+              <div class="fc-card-name">Modo Espião</div>
+              <div class="fc-card-desc">Mute + surdo ao mesmo tempo</div>
+              <div class="fc-card-led"></div>
             </div>
-            <div class="mode-card-name">Mutado</div>
-            <div class="mode-card-desc">Aparece mutado para os outros. Você continua ouvindo tudo.</div>
-          </div>
-          <div class="mode-card">
-            <div class="mode-card-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            <div class="fc-card" id="fc-row-mute" data-active="0">
+              <div class="fc-card-glow"></div>
+              <div class="fc-card-icon">🎙️</div>
+              <div class="fc-card-name">Mutado</div>
+              <div class="fc-card-desc">Mic desligado para os outros</div>
+              <div class="fc-card-led"></div>
             </div>
-            <div class="mode-card-name">Surdo</div>
-            <div class="mode-card-desc">Aparece surdo e mutado. Você continua ouvindo tudo normalmente.</div>
+            <div class="fc-card" id="fc-row-deaf" data-active="0">
+              <div class="fc-card-glow"></div>
+              <div class="fc-card-icon">🎧</div>
+              <div class="fc-card-name">Surdo</div>
+              <div class="fc-card-desc">Aparece surdo + mutado</div>
+              <div class="fc-card-led"></div>
+            </div>
           </div>
         </div>
 
-        <!-- Como usar -->
+        <!-- Como instalar -->
         <div class="section-card">
-          <div class="card-header"><h3>Como usar</h3></div>
+          <div class="card-header"><h3>Como instalar o plugin</h3></div>
           <div class="step-list">
             <div class="step-item">
               <div class="step-num">1</div>
@@ -447,8 +487,8 @@
             <div class="step-item">
               <div class="step-num">4</div>
               <div>
-                <div class="step-title">Use o painel flutuante</div>
-                <div class="step-desc">Entre em qualquer call. Um painel flutuante aparecerá na tela — use-o para ativar Modo Espião, Mutado ou Surdo.</div>
+                <div class="step-title">Controle pelo app</div>
+                <div class="step-desc">Com o plugin ativo, entre em uma call e use os controles acima. O plugin não mostra nada no Discord — tudo é controlado daqui.</div>
               </div>
             </div>
           </div>
@@ -507,40 +547,112 @@
       <!-- TAB: MISSÕES ORBS -->
       <section id="tab-orbs-auto" class="tab-section">
         <div class="page-header">
-          <h2>Missões Orbs</h2>
-          <p class="page-sub">Missões concluídas automaticamente pelo Discord Desktop</p>
+          <div>
+            <h2>Missões Orbs</h2>
+            <p class="page-sub">Missões concluídas automaticamente pelo Discord Desktop</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="orion-bridge-badge" class="status-badge status-off" style="font-size:.7rem">Bridge: Não detectada</span>
+            <span id="orion-live-badge" class="status-badge status-off">Aguardando</span>
+            <button onclick="window.open('https://betterdiscord.app/')" class="btn-success btn-sm" style="font-size:.72rem;padding:4px 10px;display:flex;align-items:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Baixar BetterDiscord
+            </button>
+          </div>
         </div>
 
+        <!-- CATÁLOGO DE MISSÕES (hero section) -->
+        <div class="section-card mb-3">
+          <div class="card-header">
+            <h3>Catálogo de Missões</h3>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button id="btn-orion-discover" class="btn-secondary btn-sm" style="display:flex;align-items:center;gap:5px;font-size:.76rem">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Carregar Missões
+              </button>
+              <span id="orion-catalog-hint" class="card-hint">Aguardando bridge...</span>
+            </div>
+          </div>
+
+          <!-- Stats row -->
+          <div id="orion-summary" class="hidden" style="margin-bottom:16px">
+            <div class="orbs-summary-grid">
+              <div class="orbs-stat">
+                <div id="orion-sum-total" class="orbs-stat-val">0</div>
+                <div class="orbs-stat-lbl">Encontradas</div>
+              </div>
+              <div class="orbs-stat">
+                <div id="orion-sum-done" class="orbs-stat-val green">0</div>
+                <div class="orbs-stat-lbl">Concluídas</div>
+              </div>
+              <div class="orbs-stat">
+                <div id="orion-sum-active" class="orbs-stat-val purple">0</div>
+                <div class="orbs-stat-lbl">Em andamento</div>
+              </div>
+              <div class="orbs-stat">
+                <div id="orion-sum-selected" class="orbs-stat-val" style="color:var(--blue)">0</div>
+                <div class="orbs-stat-lbl">Selecionadas</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quest grid catalog -->
+          <div id="orion-quest-catalog" class="orbs-quest-grid">
+            <div class="orbs-catalog-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="color:var(--text-muted);margin-bottom:8px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <div>Bridge não detectada</div>
+              <div style="font-size:.76rem;margin-top:4px">Instale o plugin e clique em Fazer Todas para descobrir as missões disponíveis</div>
+            </div>
+          </div>
+
+          <!-- Completion banner -->
+          <div id="orion-live-done" class="hidden" style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.22);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <div style="font-size:.9rem;font-weight:700;color:var(--green)">Todas as missões concluídas!</div>
+              <div id="orion-done-time" style="font-size:.74rem;color:var(--text-muted);margin-top:3px"></div>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="btn-row">
+            <button id="btn-orion-start" class="btn-success" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+              Fazer Todas
+            </button>
+            <button id="btn-orion-start-selected" class="btn-primary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+              Fazer Selecionadas (<span id="orion-selected-count">0</span>)
+            </button>
+            <button id="btn-orion-stop" class="btn-danger" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="6" y="6" width="12" height="12"/></svg>
+              Parar
+            </button>
+          </div>
+          <div id="orion-ctrl-result" class="result-box hidden mt-2"></div>
+        </div>
+
+        <!-- Bottom row: Setup + Status -->
         <div class="two-col">
 
-          <!-- COLUNA ESQUERDA: Setup -->
+          <!-- Setup card -->
           <div class="section-card">
             <div class="card-header">
-              <h3>Setup</h3>
+              <h3>Setup do Plugin</h3>
               <span class="badge-platform" style="font-size:.65rem;padding:2px 8px;border-radius:6px">BetterDiscord</span>
             </div>
 
-            <!-- Status do plugin -->
             <div id="inject-status-card" class="setup-status">
               <div id="inject-status-dot" class="setup-status-dot"></div>
               <div class="setup-status-info">
                 <div id="inject-status-title" class="setup-status-title">Verificando...</div>
                 <div id="inject-status-desc" class="setup-status-desc"></div>
               </div>
-              <span id="inject-status-icon" style="display:none"></span>
             </div>
 
-            <button id="btn-discord-inject" class="btn-success w-full mb-2" style="display:flex;align-items:center;justify-content:center;gap:7px">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              Instalar plugin no BetterDiscord
-            </button>
-            <div id="inject-result" class="result-box hidden mb-2"></div>
-
-            <div class="btn-row mb-3">
+            <div class="btn-row mb-2">
               <a href="/OrionQuests.plugin.js" download="OrionQuests.plugin.js" class="btn-secondary btn-sm" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Baixar Plugin
@@ -551,84 +663,27 @@
               </button>
             </div>
 
-            <div class="note-box mb-2">
-              <strong>Pré-requisito:</strong> instale o <strong>BetterDiscord</strong> — depois clique em <strong>Instalar</strong> para copiar o plugin automaticamente.
-            </div>
+            <button id="btn-discord-inject" class="btn-success w-full mb-2" style="display:flex;align-items:center;justify-content:center;gap:7px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Instalar plugin
+            </button>
+            <div id="inject-result" class="result-box hidden mb-2"></div>
+
             <div class="note-box">
               <strong>Privacidade de Atividade</strong> deve estar <strong style="color:var(--green)">ligada</strong> em Configurações → Privacidade de Atividade.
             </div>
           </div>
 
-          <!-- COLUNA DIREITA: Controle + Progresso -->
-          <div style="display:flex;flex-direction:column;gap:14px">
-
-            <!-- Controle -->
-            <div class="section-card">
-              <div class="card-header">
-                <h3>Controle</h3>
-                <span id="orion-ctrl-badge" class="status-badge status-off">Parado</span>
-              </div>
-
-              <div class="btn-row mb-2">
-                <button id="btn-orion-start" class="btn-success" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="5,3 19,12 5,21 5,3"/></svg>
-                  Iniciar Missões
-                </button>
-                <button id="btn-orion-stop" class="btn-danger" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px" disabled>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="6" y="6" width="12" height="12"/></svg>
-                  Parar
-                </button>
-              </div>
-              <div id="orion-ctrl-result" class="result-box hidden"></div>
-
-              <div id="orion-summary" class="hidden">
-                <div class="orbs-summary-grid">
-                  <div class="orbs-stat">
-                    <div id="orion-sum-total" class="orbs-stat-val">0</div>
-                    <div class="orbs-stat-lbl">Encontradas</div>
-                  </div>
-                  <div class="orbs-stat">
-                    <div id="orion-sum-done" class="orbs-stat-val green">0</div>
-                    <div class="orbs-stat-lbl">Concluídas</div>
-                  </div>
-                  <div class="orbs-stat">
-                    <div id="orion-sum-active" class="orbs-stat-val purple">0</div>
-                    <div class="orbs-stat-lbl">Em andamento</div>
-                  </div>
-                </div>
-              </div>
+          <!-- Live hint card -->
+          <div class="section-card">
+            <div class="card-header">
+              <h3>Status ao Vivo</h3>
+              <span id="orion-ctrl-badge" class="status-badge status-off">Parado</span>
             </div>
-
-            <!-- Progresso em tempo real -->
-            <div class="section-card">
-              <div class="card-header">
-                <h3>Progresso</h3>
-                <span id="orion-live-badge" class="status-badge status-off">Aguardando</span>
-              </div>
-
-              <div class="info-row mb-2">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" width="14" height="14"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-                  <span style="font-size:.78rem;color:var(--text-muted)">Bridge Discord</span>
-                </div>
-                <span id="orion-bridge-badge" class="status-badge status-off" style="font-size:.68rem;padding:2px 8px">Não detectada</span>
-              </div>
-
-              <div id="orion-live-hint" style="font-size:.78rem;color:var(--text-muted);padding:4px 0 6px">Aguardando o Discord iniciar o script...</div>
-              <div id="orion-live-tasks" style="display:flex;flex-direction:column;gap:8px"></div>
-
-              <div id="orion-live-done" class="hidden" style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.22);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
-                <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div>
-                  <div style="font-size:.9rem;font-weight:700;color:var(--green)">Todas as missões concluídas!</div>
-                  <div id="orion-done-time" style="font-size:.74rem;color:var(--text-muted);margin-top:3px"></div>
-                </div>
-              </div>
-            </div>
-
+            <div id="orion-live-hint" style="font-size:.82rem;color:var(--text-muted);padding:8px 0">Aguardando o Discord iniciar o script...</div>
+            <div id="orion-live-tasks" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
           </div>
+
         </div>
       </section>
 
@@ -833,6 +888,37 @@
             <div id="inv-nicks-history" class="empty-hint">Nenhum histórico registrado.</div>
           </div>
 
+          <div class="section-card mt-3">
+            <div class="card-header">
+              <h3><span class="inv-section-icon">💬</span> Mensagens Recentes</h3>
+              <span class="card-hint">Últimas mensagens encontradas nos servidores escaneados</span>
+            </div>
+            <div id="inv-recent-messages" class="empty-hint">Nenhuma mensagem encontrada.</div>
+          </div>
+
+          <div class="two-col mt-3">
+            <div class="section-card">
+              <div class="card-header">
+                <h3><span class="inv-section-icon">🔨</span> Status de Banimento</h3>
+              </div>
+              <div id="inv-ban-status" class="empty-hint">Verificação não disponível.</div>
+            </div>
+            <div class="section-card">
+              <div class="card-header">
+                <h3><span class="inv-section-icon">🎙️</span> Atividade de Voz</h3>
+              </div>
+              <div id="inv-voice-activity" class="empty-hint">Fora dos canais de voz.</div>
+            </div>
+          </div>
+
+          <div class="section-card mt-3">
+            <div class="card-header">
+              <h3><span class="inv-section-icon">💬</span> Top Conversas</h3>
+              <span class="card-hint" id="inv-top-conv-hint">Requer token do alvo</span>
+            </div>
+            <div id="inv-top-conversations" class="empty-hint">Adicione o token do alvo nos tokens extras para ver com quem ele mais conversa.</div>
+          </div>
+
         </div>
       </section>
 
@@ -1011,7 +1097,12 @@
       <section id="tab-admin" class="tab-section">
         <div class="page-header">
           <h2>Painel Admin</h2>
-          <p class="page-sub">Gerencie usuários e aprovações</p>
+          <p class="page-sub">Gerencie usuários, cargos e permissões</p>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span id="worker-status-dot" style="width:8px;height:8px;border-radius:50%;background:#72767d;display:inline-block;flex-shrink:0"></span>
+            <span id="worker-status-label" style="font-size:.74rem;color:var(--text-muted)">Worker: verificando...</span>
+            <button id="btn-worker-ping" class="btn-ghost btn-sm" style="font-size:.7rem;padding:2px 8px">Reconectar</button>
+          </div>
         </div>
 
         <div class="card mb-3">
@@ -1020,7 +1111,15 @@
         </div>
 
         <div class="card">
-          <div class="card-title">👥 Todos os usuários</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>👥 Todos os usuários</span>
+            <button id="btn-admin-refresh" class="btn-ghost btn-sm" style="font-size:.75rem;display:flex;align-items:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Atualizar
+            </button>
+          </div>
+          <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 8px">Defina o cargo e as abas liberadas para cada pessoa clicando em <strong>Acesso ▾</strong>.</p>
+          <div id="admin-role-result" class="result-box hidden" style="margin-bottom:8px"></div>
           <div id="admin-all-list" class="admin-user-list">Carregando...</div>
         </div>
       </section>

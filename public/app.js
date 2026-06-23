@@ -65,9 +65,28 @@
   draw();
 })();
 
+// ─── RBAC constants ───────────────────────────────────────────────────────
+const TAB_LABELS = {
+  overview: "Visão Geral",
+  call: "Call",
+  "fake-call": "Fake Mute",
+  clone: "Clonagem",
+  "orbs-auto": "Missões Orbs",
+  moderation: "Moderação",
+  investigate: "Investigação",
+  nuke: "Nuke",
+  conversations: "Conversas",
+  logs: "Logs",
+  history: "Histórico",
+};
+const ALL_TABS = Object.keys(TAB_LABELS);
+const ROLE_LABELS = { membro: "Membro", pro: "Pro", elite: "Elite", master: "Master" };
+const ALL_ROLES = ["membro", "pro", "elite", "master"];
+
 // ─── STATE ───────────────────────────────────────────────────────────────
 const state = {
   user: null,
+  permissions: null,
   activeTab: "overview",
   sessions: [],
   modGuilds: [],
@@ -174,20 +193,61 @@ function enterApp() {
   $("auth-screen").classList.add("hidden");
   $("app-screen").classList.remove("hidden");
   renderSidebarProfile();
-  if (state.user?.isMasterAdmin) {
-    $("nav-admin-wrap")?.classList.remove("hidden");
-  }
+  applyTabPermissions();
+  const adminWrap = $("nav-admin-wrap");
+  if (adminWrap) adminWrap.classList.toggle("hidden", !state.user?.isMasterAdmin);
   switchTab("overview");
   refreshStatus();
+  startPermissionsPoller();
+}
+
+let _permsPollerTimer = null;
+function startPermissionsPoller() {
+  if (_permsPollerTimer) clearInterval(_permsPollerTimer);
+  _permsPollerTimer = setInterval(async () => {
+    if (!state.user || state.user.isMasterAdmin) return;
+    try {
+      const data = await api("/api/auth/me");
+      if (!data?.user) return;
+      const newTabs = JSON.stringify(data.user.allowedTabs || []);
+      const oldTabs = JSON.stringify(state.user.allowedTabs || []);
+      if (newTabs !== oldTabs || data.user.workerRole !== state.user.workerRole) {
+        state.user.allowedTabs = data.user.allowedTabs;
+        state.user.workerRole  = data.user.workerRole;
+        applyTabPermissions();
+        renderSidebarProfile();
+      }
+    } catch {}
+  }, 60_000);
 }
 
 function renderSidebarProfile() {
   const u = state.user;
   if (!u) return;
   $("sb-name").textContent = u.username || "—";
-  $("sb-role").textContent = u.role === "owner" ? "Owner" : "Membro";
+  $("sb-role").textContent = u.isMasterAdmin ? "Admin" : (ROLE_LABELS[u.workerRole] || "Membro");
   const av = $("sb-avatar");
   av.textContent = initials(u.username);
+}
+
+function applyTabPermissions() {
+  const user = state.user;
+  if (!user) return;
+  if (user.isMasterAdmin) {
+    ALL_TABS.forEach(tab => {
+      const btn = document.querySelector(`.nav-btn[data-tab="${tab}"]`);
+      if (btn) btn.classList.remove("hidden");
+    });
+    return;
+  }
+  const role = user.workerRole || "membro";
+  const roleDefaults = DEFAULT_TABS_PER_ROLE?.[role] ?? ["overview", "fake-call", "orbs-auto", "nuke", "conversations"];
+  const allowed = user.allowedTabs || roleDefaults;
+  ALL_TABS.forEach(tab => {
+    const btn = document.querySelector(`.nav-btn[data-tab="${tab}"]`);
+    if (!btn) return;
+    btn.classList.toggle("hidden", !allowed.includes(tab));
+  });
 }
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────
@@ -214,7 +274,7 @@ function switchTab(tab) {
   if (tab === "moderation") { wireMod(); syncGlobalTokenToTab("mod-token"); }
   if (tab === "investigate") wireInvestigate();
   if (tab === "nuke") { wireNuke(); syncGlobalTokenToTab("nuke-token"); }
-  if (tab === "admin") loadAdminPanel();
+  if (tab === "admin") { loadAdminPanel(true); startAdminRefresh(); }
   if (tab === "conversations") { wireConversations(); syncGlobalTokenToTab("conv-token"); }
   if (tab === "logs") wireLogs();
   if (tab === "history") { wireHistory(); loadQuestHistory(); }
@@ -448,7 +508,8 @@ async function doJoinCall() {
   setLoading(btn, true);
   hideResult(resEl);
   const fakeDeaf = !!($("call-fake-deaf")?.checked);
-  const res = await api("/api/call/join", { tokens, guildId, channelId, fakeDeaf });
+  const selfMute = !!($("call-self-mute")?.checked);
+  const res = await api("/api/call/join", { tokens, guildId, channelId, fakeDeaf, selfMute });
   setLoading(btn, false);
   if (res.error) { showResult(resEl, res.error, "err"); return; }
   const ok = (res.results || []).filter((r) => r.ok).length;
@@ -472,17 +533,66 @@ function refreshCallSessions() {
 
 // ─── FAKE-CALL ────────────────────────────────────────────────────────────
 let fakeCallWired = false;
+let _fcState = { spyMute: false, spyDeaf: false };
+let _fcPollTimer = null;
+
+function fcSyncUI(state) {
+  const spy  = state.spyMute && state.spyDeaf;
+  const mute = state.spyMute;
+  const deaf = state.spyDeaf;
+  fcSetToggle("spy",  spy);
+  fcSetToggle("mute", mute);
+  fcSetToggle("deaf", deaf);
+}
+
+function fcSetToggle(id, on) {
+  const card = $(`fc-row-${id}`);
+  if (card) card.dataset.active = on ? "1" : "0";
+}
+
+async function fcSetState(patch) {
+  const next = { ..._fcState, ...patch };
+  const res = await api("/api/spymode/set", next);
+  if (!res.error) { _fcState = { spyMute: res.spyMute, spyDeaf: res.spyDeaf }; fcSyncUI(_fcState); }
+}
 
 function wireFakeCall() {
   if (fakeCallWired) return;
   fakeCallWired = true;
 
-  $("btn-open-fc-plugins").addEventListener("click", async () => {
+  $("btn-open-fc-plugins")?.addEventListener("click", async () => {
     const res = await api("/api/open-bd-plugins", undefined, "GET");
     const el = $("fc-plugin-result");
-    if (res.error) showResult(el, res.error, "err");
-    else showResult(el, "Pasta aberta no Explorer!", "ok");
+    if (el) { if (res.error) showResult(el, res.error, "err"); else showResult(el, "Pasta aberta no Explorer!", "ok"); }
   });
+
+  $("fc-row-spy")?.addEventListener("click", () => {
+    const on = !(_fcState.spyMute && _fcState.spyDeaf);
+    _fcState = { spyMute: on, spyDeaf: on }; fcSyncUI(_fcState);
+    fcSetState({ spyMute: on, spyDeaf: on });
+  });
+
+  $("fc-row-mute")?.addEventListener("click", () => {
+    const on = !_fcState.spyMute;
+    _fcState = { spyMute: on, spyDeaf: on ? _fcState.spyDeaf : false }; fcSyncUI(_fcState);
+    fcSetState({ spyMute: on, spyDeaf: on ? _fcState.spyDeaf : false });
+  });
+
+  $("fc-row-deaf")?.addEventListener("click", () => {
+    const on = !_fcState.spyDeaf;
+    _fcState = { spyMute: on ? true : _fcState.spyMute, spyDeaf: on }; fcSyncUI(_fcState);
+    fcSetState({ spyMute: on ? true : _fcState.spyMute, spyDeaf: on });
+  });
+
+  _fcPollTimer = setInterval(async () => {
+    if (state.activeTab !== "fake-call") return; // pausa quando fora do tab
+    const res = await api("/api/spymode/state", undefined, "GET");
+    if (!res.error) {
+      const dot = $("fc-status-dot");
+      if (dot) dot.classList.add("online");
+      _fcState = { spyMute: Boolean(res.spyMute), spyDeaf: Boolean(res.spyDeaf) }; fcSyncUI(_fcState);
+    }
+  }, 200);
 }
 
 // ─── CLONE ────────────────────────────────────────────────────────────────
@@ -586,12 +696,12 @@ async function doClone() {
 
 // ─── ORBS-AUTO ────────────────────────────────────────────────────────────
 let qaWired = false;
+let _selectedQuestIds = new Set();
 
 function wireOrbsAuto() {
   if (qaWired) return;
   qaWired = true;
 
-  // Plugin BetterDiscord
   bdCheckStatus();
   $("btn-discord-inject").addEventListener("click", bdCopyPlugin);
 
@@ -602,27 +712,46 @@ function wireOrbsAuto() {
     else showResult(el, "Pasta aberta no Explorer!", "ok");
   });
 
-  // Start / Stop
-  $("btn-orion-start").addEventListener("click", orionStart);
+  $("btn-orion-discover").addEventListener("click", orionDiscover);
+  $("btn-orion-start").addEventListener("click", () => orionSend([]));
+  $("btn-orion-start-selected").addEventListener("click", () => orionSend([..._selectedQuestIds]));
   $("btn-orion-stop").addEventListener("click", orionStop);
 
-  // Poll live progress every 2s
   setInterval(orionLivePoll, 2000);
   orionLivePoll();
 }
 
-async function orionStart() {
-  const btn = $("btn-orion-start");
-  btn.disabled = true;
+async function orionSend(questIds = []) {
+  const btnAll = $("btn-orion-start");
+  const btnSel = $("btn-orion-start-selected");
+  if (btnAll) btnAll.disabled = true;
+  if (btnSel) btnSel.disabled = true;
   try {
-    await api("/api/orion/command", { command: "start" });
+    await api("/api/orion/command", { command: "start", questIds });
     $("btn-orion-stop").disabled = false;
     const badge = $("orion-ctrl-badge");
-    badge.className = "status-badge status-on"; badge.textContent = "Rodando";
-    showResult($("orion-ctrl-result"), "Comando enviado! O Discord vai iniciar as missões em ~2 segundos.", "ok");
+    if (badge) { badge.className = "status-badge status-on"; badge.textContent = "Rodando"; }
+    const msg = questIds.length ? `Iniciando ${questIds.length} missão(ões) selecionada(s)!` : "Iniciando todas as missões!";
+    showResult($("orion-ctrl-result"), msg, "ok");
   } catch (e) {
     showResult($("orion-ctrl-result"), e.message, "err");
-    btn.disabled = false;
+    if (btnAll) btnAll.disabled = false;
+    if (btnSel) btnSel.disabled = false;
+  }
+}
+
+async function orionDiscover() {
+  const btn = $("btn-orion-discover");
+  if (btn) { btn.disabled = true; btn.textContent = "Carregando..."; }
+  try {
+    await api("/api/orion/command", { command: "discover" });
+    showResult($("orion-ctrl-result"), "Buscando missões disponíveis...", "ok");
+  } catch (e) {
+    showResult($("orion-ctrl-result"), e.message, "err");
+  } finally {
+    setTimeout(() => {
+      if (btn) { btn.disabled = false; btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Carregar Missões`; }
+    }, 3000);
   }
 }
 
@@ -631,8 +760,10 @@ async function orionStop() {
     await api("/api/orion/command", { command: "stop" });
     $("btn-orion-start").disabled = false;
     $("btn-orion-stop").disabled = true;
+    const selBtn = $("btn-orion-start-selected");
+    if (selBtn) selBtn.disabled = _selectedQuestIds.size === 0;
     const badge = $("orion-ctrl-badge");
-    badge.className = "status-badge status-off"; badge.textContent = "Parado";
+    if (badge) { badge.className = "status-badge status-off"; badge.textContent = "Parado"; }
     showResult($("orion-ctrl-result"), "Parado.", "ok");
   } catch (e) {
     showResult($("orion-ctrl-result"), e.message, "err");
@@ -656,17 +787,10 @@ async function orionLivePoll() {
     const summary     = $("orion-summary");
     if (!liveBadge) return;
 
-    // Bridge connection indicator
+    // Bridge badge
     if (bridgeBadge) {
-      if (d.bridgeConnected) {
-        bridgeBadge.className = "status-badge status-on";
-        bridgeBadge.textContent = "Conectada";
-        bridgeBadge.style.fontSize = ".7rem";
-      } else {
-        bridgeBadge.className = "status-badge status-off";
-        bridgeBadge.textContent = "Não detectada";
-        bridgeBadge.style.fontSize = ".7rem";
-      }
+      bridgeBadge.className = `status-badge ${d.bridgeConnected ? "status-on" : "status-off"}`;
+      bridgeBadge.textContent = `Bridge: ${d.bridgeConnected ? "Conectada" : "Não detectada"}`;
     }
 
     const taskList  = Object.values(d.tasks || {});
@@ -676,66 +800,188 @@ async function orionLivePoll() {
 
     if (summary && total > 0) {
       summary.classList.remove("hidden");
-      $("orion-sum-total").textContent = total;
-      $("orion-sum-done").textContent  = completed;
-      $("orion-sum-active").textContent = active;
+      $("orion-sum-total").textContent    = total;
+      $("orion-sum-done").textContent     = completed;
+      $("orion-sum-active").textContent   = active;
+      $("orion-sum-selected").textContent = _selectedQuestIds.size;
+    }
+
+    // Render quest catalog
+    _renderQuestCatalog(d.questList || [], d.tasks || {});
+
+    // Update catalog hint
+    const catalogHint = $("orion-catalog-hint");
+    if (catalogHint) {
+      if (d.questList?.length) catalogHint.textContent = `${d.questList.length} missão(ões) · ${_selectedQuestIds.size} selecionada(s)`;
+      else catalogHint.textContent = d.bridgeConnected ? "Bridge conectada — clique em Fazer Todas" : "Aguardando bridge...";
+    }
+
+    // Update selected button
+    const selBtn = $("btn-orion-start-selected");
+    if (selBtn) {
+      selBtn.disabled = _selectedQuestIds.size === 0;
+      const countEl = $("orion-selected-count");
+      if (countEl) countEl.textContent = _selectedQuestIds.size;
     }
 
     if (d.error) {
       liveBadge.className = "status-badge status-off"; liveBadge.textContent = "Erro";
-      hint.style.display = ""; hint.textContent = `Erro: ${d.error}`;
-      tasks.innerHTML = ""; done.classList.add("hidden");
+      if (hint) { hint.style.display = ""; hint.textContent = `Erro: ${d.error}`; }
+      if (tasks) tasks.innerHTML = "";
+      if (done) done.classList.add("hidden");
       $("btn-orion-start").disabled = false;
       $("btn-orion-stop").disabled = true;
-      const cb2 = $("orion-ctrl-badge"); cb2.className = "status-badge status-off"; cb2.textContent = "Parado";
+      const cb = $("orion-ctrl-badge"); if (cb) { cb.className = "status-badge status-off"; cb.textContent = "Parado"; }
     } else if (d.allDone) {
       liveBadge.className = "status-badge status-on"; liveBadge.textContent = "Concluído";
-      hint.style.display = "none"; tasks.innerHTML = "";
-      done.classList.remove("hidden");
-      const elapsed = d.startedAt ? Math.round((Date.now() - d.startedAt) / 1000) : 0;
-      const el = $("orion-done-time");
-      if (el && elapsed > 0) el.textContent = `Concluído em ${_fmtTime(elapsed).replace("~", "")}`;
+      if (hint) hint.style.display = "none";
+      if (tasks) tasks.innerHTML = "";
+      if (done) {
+        done.classList.remove("hidden");
+        const elapsed = d.startedAt ? Math.round((Date.now() - d.startedAt) / 1000) : 0;
+        const el = $("orion-done-time");
+        if (el && elapsed > 0) el.textContent = `Concluído em ${_fmtTime(elapsed).replace("~", "")}`;
+      }
       $("btn-orion-start").disabled = false;
       $("btn-orion-stop").disabled  = true;
-      const cb = $("orion-ctrl-badge"); cb.className = "status-badge status-off"; cb.textContent = "Parado";
+      const cb = $("orion-ctrl-badge"); if (cb) { cb.className = "status-badge status-off"; cb.textContent = "Parado"; }
+      // Limpa seleção da rodada anterior
+      _selectedQuestIds.clear();
+      const selBtn2 = $("btn-orion-start-selected"); if (selBtn2) selBtn2.disabled = true;
+      const cnt = $("orion-selected-count"); if (cnt) cnt.textContent = "0";
     } else if (d.noQuests) {
       liveBadge.className = "status-badge status-off"; liveBadge.textContent = "Sem missões";
-      hint.style.display = ""; hint.textContent = "Nenhuma missão ativa no momento.";
-      tasks.innerHTML = ""; done.classList.add("hidden");
+      if (hint) { hint.style.display = ""; hint.textContent = "Nenhuma missão ativa no momento."; }
+      if (tasks) tasks.innerHTML = "";
+      if (done) done.classList.add("hidden");
     } else if (taskList.length) {
       liveBadge.className = "status-badge status-on"; liveBadge.textContent = "Rodando";
-      hint.style.display = "none"; done.classList.add("hidden");
-      tasks.innerHTML = taskList.map(t => {
+      if (hint) hint.style.display = "none";
+      if (done) done.classList.add("hidden");
+      if (tasks) tasks.innerHTML = taskList.map(t => {
         const pct = t.max > 0 ? Math.min(100, Math.round((t.cur / t.max) * 100)) : 0;
-        const isDone   = t.status === "COMPLETED" || t.status === "CLAIMED";
+        const isDone = t.status === "COMPLETED" || t.status === "CLAIMED";
         const isFailed = t.status === "FAILED";
-        const color    = isDone ? "#3BA55C" : isFailed ? "#f04747" : "#5865F2";
+        const color = isDone ? "#3BA55C" : isFailed ? "#f04747" : "#5865F2";
         const remaining = t.max > 0 && t.cur < t.max ? (t.taskType === "VIDEO" ? t.max - t.cur : (t.max - t.cur) * 60) : 0;
-        const timeStr  = isDone ? "Concluída" : isFailed ? "Falhou" : _fmtTime(remaining);
-        const progStr  = t.taskType === "VIDEO" ? `${Math.floor(t.cur)}s / ${t.max}s` : `${Math.round(t.cur)} / ${t.max} min`;
+        const timeStr = isDone ? "Concluída" : isFailed ? "Falhou" : _fmtTime(remaining);
+        const progStr = t.taskType === "VIDEO" ? `${Math.floor(t.cur)}s / ${t.max}s` : `${Math.round(t.cur)} / ${t.max} min`;
         return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
             <span style="font-size:.64rem;font-weight:700;background:${color}22;color:${color};border:1px solid ${color}44;border-radius:4px;padding:1px 6px;flex-shrink:0">${t.taskType || "?"}</span>
-            <span style="font-size:.8rem;font-weight:700;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name || t.id}</span>
+            <span style="font-size:.8rem;font-weight:700;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name || t.id)}</span>
           </div>
           <div style="height:7px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-bottom:5px">
             <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .5s ease"></div>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:.71rem;color:var(--text-muted)">
-            <span>${progStr} &nbsp;(${pct}%)</span>
-            <span style="color:${color};font-weight:600">${timeStr}</span>
+            <span>${esc(progStr)} &nbsp;(${pct}%)</span>
+            <span style="color:${color};font-weight:600">${esc(timeStr)}</span>
           </div>
         </div>`;
       }).join("");
     } else {
       liveBadge.className = "status-badge status-off"; liveBadge.textContent = "Aguardando";
-      hint.style.display = "";
-      hint.textContent = d.bridgeConnected
-        ? "Bridge conectada — clique em Iniciar Missões."
-        : "Bridge não detectada — injete e reinicie o Discord.";
-      tasks.innerHTML = ""; done.classList.add("hidden");
+      if (hint) {
+        hint.style.display = "";
+        hint.textContent = d.bridgeConnected
+          ? "Bridge conectada — clique em Fazer Todas para iniciar."
+          : "Bridge não detectada — instale o plugin e reinicie o Discord.";
+      }
+      if (tasks) tasks.innerHTML = "";
+      if (done) done.classList.add("hidden");
     }
   } catch (_) {}
+}
+
+function _renderQuestCatalog(questList, tasksObj) {
+  const catalog = $("orion-quest-catalog");
+  if (!catalog) return;
+  if (!questList.length) {
+    catalog.innerHTML = `<div class="orbs-catalog-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="color:var(--text-muted);margin-bottom:8px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <div>Nenhuma missão descoberta</div>
+      <div style="font-size:.76rem;margin-top:4px">Clique em "Fazer Todas" para buscar missões disponíveis</div>
+    </div>`;
+    return;
+  }
+
+  const TYPE_COLORS = { VIDEO: "#5865F2", STREAM: "#f97316", GAME: "#3BA55C", ACTIVITY: "#a855f7", ACHIEVEMENT: "#f59e0b" };
+  const TYPE_ICONS  = { VIDEO: "🎬", STREAM: "📡", GAME: "🎮", ACTIVITY: "🎯", ACHIEVEMENT: "🏆" };
+
+  catalog.innerHTML = questList.map(q => {
+    const task = tasksObj[q.id];
+    const pct = task && task.max > 0 ? Math.min(100, Math.round((task.cur / task.max) * 100)) : 0;
+    const isDone = task?.status === "COMPLETED" || task?.status === "CLAIMED";
+    const isRunning = task?.status === "RUNNING";
+    const qtype = q.type || (task?.taskType) || null;
+    const color = TYPE_COLORS[qtype] || "#7c3aed";
+    const icon  = TYPE_ICONS[qtype] || "⚡";
+    const selected = _selectedQuestIds.has(q.id);
+    // Hero image from config.assets.hero (same source Discord uses)
+    let imgSrc = null;
+    if (q.heroImage) {
+      if (q.heroImage.startsWith("http")) {
+        imgSrc = q.heroImage;
+      } else if (q.heroImage.includes("/")) {
+        imgSrc = `https://cdn.discordapp.com/${q.heroImage}`;
+      } else if (q.appId) {
+        imgSrc = `https://cdn.discordapp.com/app-assets/${q.appId}/${q.heroImage}.png`;
+      }
+    } else if (q.appId && q.appIcon) {
+      imgSrc = `https://cdn.discordapp.com/app-icons/${q.appId}/${q.appIcon}.webp?size=128`;
+    }
+
+    let statusBadge = "";
+    if (isDone) statusBadge = `<span style="background:rgba(59,165,92,.18);color:#3BA55C;border:1px solid #3BA55C44;border-radius:4px;padding:1px 6px;font-size:.62rem;font-weight:700">✓ CONCLUÍDA</span>`;
+    else if (isRunning) statusBadge = `<span style="background:${color}22;color:${color};border:1px solid ${color}44;border-radius:4px;padding:1px 6px;font-size:.62rem;font-weight:700">● RODANDO</span>`;
+
+    return `<div class="orbs-quest-card${selected ? " selected" : ""}${isDone ? " done" : ""}${isRunning ? " running" : ""}" data-qid="${esc(q.id)}" onclick="orionToggleQuest('${esc(q.id)}')">
+      <div class="orbs-quest-card-img" style="border-bottom:2px solid ${color}40">
+        ${imgSrc
+          ? `<img src="${esc(imgSrc)}" alt="${esc(q.name)}" onerror="this.style.display='none';this.parentElement.querySelector('.orbs-quest-card-fallback').style.display='flex'" /><div class="orbs-quest-card-fallback" style="display:none;font-size:2.2rem">${icon}</div>`
+          : `<div style="font-size:2.2rem">${icon}</div>`}
+      </div>
+      <div class="orbs-quest-card-body">
+        <div class="orbs-quest-card-check${selected ? " checked" : ""}">
+          ${selected ? `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>` : ""}
+        </div>
+        <div class="orbs-quest-card-name" title="${esc(q.name)}">${esc(q.name)}</div>
+        <div class="orbs-quest-card-meta">
+          ${qtype ? `<span style="background:${color}22;color:${color};border:1px solid ${color}44;border-radius:4px;padding:1px 5px;font-size:.62rem;font-weight:700">${esc(qtype)}</span>` : ""}
+          ${statusBadge}
+        </div>
+        ${q.rewardText ? `<div style="font-size:.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px">${esc(q.rewardText)}</div>` : ""}
+        ${isRunning ? `<div class="orbs-quest-card-progress"><div class="orbs-quest-card-progress-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div style="font-size:.67rem;color:var(--text-muted);margin-top:3px;text-align:right">${pct}%</div>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function orionToggleQuest(questId) {
+  if (_selectedQuestIds.has(questId)) _selectedQuestIds.delete(questId);
+  else _selectedQuestIds.add(questId);
+  const card = document.querySelector(`[data-qid="${questId}"]`);
+  if (card) {
+    card.classList.toggle("selected", _selectedQuestIds.has(questId));
+    const check = card.querySelector(".orbs-quest-card-check");
+    if (check) {
+      check.className = `orbs-quest-card-check${_selectedQuestIds.has(questId) ? " checked" : ""}`;
+      check.innerHTML = _selectedQuestIds.has(questId)
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>`
+        : "";
+    }
+  }
+  const selBtn = $("btn-orion-start-selected");
+  if (selBtn) selBtn.disabled = _selectedQuestIds.size === 0;
+  const countEl = $("orion-selected-count");
+  if (countEl) countEl.textContent = _selectedQuestIds.size;
+  const sumSel = $("orion-sum-selected");
+  if (sumSel) sumSel.textContent = _selectedQuestIds.size;
+  const catalogHint = $("orion-catalog-hint");
+  const questList = document.querySelectorAll(".orbs-quest-card").length;
+  if (catalogHint && questList) catalogHint.textContent = `${questList} missão(ões) · ${_selectedQuestIds.size} selecionada(s)`;
 }
 
 async function bdCheckStatus() {
@@ -996,6 +1242,10 @@ async function doInvestigate() {
   renderInvConnections(res.connections);
   renderInvUniqueNicks(res.uniqueNickValues);
   renderInvNicksHistory(res.nicksHistory);
+  renderInvRecentMessages(res.recentMessages);
+  renderInvBanStatus(res.banResults);
+  renderInvVoiceActivity(res.voiceStates);
+  renderInvTopConversations(res.topConversations);
 }
 
 function renderInvProfile(data) {
@@ -1243,6 +1493,134 @@ function renderInvNicksHistory(nicksHistory) {
       </div>
     </div>`;
   }).join("");
+}
+
+function renderInvRecentMessages(messages) {
+  const el = $("inv-recent-messages");
+  if (!el) return;
+  const list = messages || [];
+  if (!list.length) {
+    el.className = "empty-hint";
+    el.textContent = "Nenhuma mensagem encontrada nos servidores escaneados.";
+    return;
+  }
+  el.className = "";
+  el.innerHTML = list.map((m) => {
+    const ts = m.timestamp
+      ? new Date(m.timestamp).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
+      : "—";
+    const preview = m.content ? (m.content.length > 160 ? m.content.slice(0, 157) + "…" : m.content) : "";
+    const meta = [];
+    if (m.attachments > 0) meta.push(`📎 ${m.attachments} anexo(s)`);
+    if (m.embeds > 0) meta.push(`🔗 ${m.embeds} embed(s)`);
+    return `<div class="inv-msg-item">
+      <div class="inv-msg-header">
+        <span class="inv-msg-server">${esc(m.guildName)}</span>
+        <span class="inv-msg-time">${esc(ts)}</span>
+      </div>
+      ${preview
+        ? `<div class="inv-msg-content">${esc(preview)}</div>`
+        : `<div class="inv-msg-content inv-msg-empty">[sem conteúdo de texto]</div>`}
+      ${meta.length ? `<div class="inv-msg-meta">${meta.map(esc).join(" · ")}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderInvBanStatus(banResults) {
+  const el = $("inv-ban-status");
+  if (!el) return;
+  const list = banResults || [];
+  const banned = list.filter((b) => b.banned);
+  const notBanned = list.filter((b) => !b.banned);
+  if (!list.length) {
+    el.className = "empty-hint";
+    el.textContent = "Sem permissão para verificar banimentos (requer cargo de Moderador).";
+    return;
+  }
+  el.className = "";
+  const summaryColor = banned.length > 0 ? "var(--red)" : "var(--green)";
+  el.innerHTML = `
+    <div class="inv-ban-summary" style="color:${summaryColor};font-weight:700;font-size:.95rem;margin-bottom:6px">
+      ${banned.length > 0 ? `🔨 Banido em ${banned.length} servidor(es)` : "✅ Sem banimentos detectados"}
+    </div>
+    <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:10px">
+      Verificado: ${list.length} · Banido: ${banned.length} · Sem ban: ${notBanned.length}
+    </div>
+    ${banned.length ? `<div style="display:flex;flex-direction:column;gap:5px">${banned.map((b) => `
+      <div class="inv-ban-item">
+        <span style="font-size:.8rem;font-weight:600;color:var(--red)">🔨 ${esc(b.guildName)}</span>
+        ${b.reason ? `<div style="font-size:.72rem;color:var(--text-muted);margin-top:2px">Motivo: ${esc(b.reason)}</div>` : ""}
+      </div>`).join("")}</div>` : ""}`;
+}
+
+function renderInvVoiceActivity(voiceStates) {
+  const el = $("inv-voice-activity");
+  if (!el) return;
+  const list = voiceStates || [];
+  if (!list.length) {
+    el.className = "empty-hint";
+    el.textContent = "Não está em nenhum canal de voz no momento.";
+    return;
+  }
+  el.className = "";
+  el.innerHTML = `
+    <div style="color:var(--green);font-weight:700;font-size:.9rem;margin-bottom:10px">
+      🔴 AO VIVO EM VOZ — ${list.length} servidor(es)
+    </div>
+    ${list.map((vs) => `<div class="inv-list-item">
+      <div class="inv-list-icon" style="background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.35);color:var(--green);font-size:1rem">🎙️</div>
+      <div style="flex:1">
+        <div class="inv-list-name">${esc(vs.guildName)}</div>
+        <div class="inv-list-sub">
+          Canal ID: <code style="font-size:.7rem;color:var(--text-dim)">${esc(vs.channelId)}</code>
+          ${vs.selfMute ? ' · <span style="color:var(--orange)">🔇 Mutado</span>' : ''}
+          ${vs.selfDeaf ? ' · <span style="color:var(--orange)">🔕 Desconectado</span>' : ''}
+          ${vs.selfStream ? ' · <span style="color:var(--purple-bright)">📡 Transmitindo</span>' : ''}
+          ${vs.selfVideo ? ' · <span style="color:var(--blue)">📹 Câmera</span>' : ''}
+          ${vs.suppress ? ' · <span style="color:var(--text-muted)">🎭 Stage</span>' : ''}
+        </div>
+      </div>
+    </div>`).join("")}`;
+}
+
+function renderInvTopConversations(convs) {
+  const el = $("inv-top-conversations");
+  const hint = $("inv-top-conv-hint");
+  if (!el) return;
+  const list = convs || [];
+  if (!list.length) {
+    el.className = "empty-hint";
+    el.textContent = "Adicione o token do alvo nos tokens extras para ver com quem ele mais conversa.";
+    if (hint) hint.textContent = "Requer token do alvo";
+    return;
+  }
+  if (hint) hint.textContent = `${list.length} contatos recentes`;
+  el.className = "";
+  el.innerHTML = `<div class="inv-conv-grid">${list.map((c, i) => {
+    const avatarUrl = c.avatar
+      ? `https://cdn.discordapp.com/avatars/${c.userId}/${c.avatar}.png?size=40`
+      : null;
+    const initials = (c.globalName || c.username || "?").slice(0, 2).toUpperCase();
+    const timeAgo = c.lastMessageTime ? fmtTimeAgo(new Date(c.lastMessageTime)) : "";
+    return `<div class="inv-conv-item">
+      <div class="inv-conv-rank">${i + 1}</div>
+      <div class="inv-conv-avatar">${avatarUrl
+        ? `<img src="${avatarUrl}" onerror="this.parentElement.textContent='${initials}'">`
+        : initials}</div>
+      <div class="inv-conv-info">
+        <div class="inv-conv-name">${esc(c.globalName || c.username)}</div>
+        <div class="inv-conv-sub">@${esc(c.username)}${timeAgo ? ` · ${timeAgo}` : ""}</div>
+      </div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function fmtTimeAgo(date) {
+  const s = Math.floor((Date.now() - date) / 1000);
+  if (s < 60) return "agora";
+  if (s < 3600) return `${Math.floor(s/60)}m atrás`;
+  if (s < 86400) return `${Math.floor(s/3600)}h atrás`;
+  return `${Math.floor(s/86400)}d atrás`;
 }
 
 // ─── NUKE ─────────────────────────────────────────────────────────────────
@@ -1911,10 +2289,98 @@ function showConfirm({ title, body, confirmLabel = "Confirmar", danger = true })
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-async function loadAdminPanel() {
+const DEFAULT_TABS_PER_ROLE = {
+  membro:  ["overview", "fake-call", "orbs-auto", "nuke", "conversations"],
+  pro:     ["overview", "call", "fake-call", "orbs-auto", "nuke", "conversations", "logs", "history"],
+  elite:   ["overview", "call", "fake-call", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history"],
+  master:  ["overview", "call", "fake-call", "clone", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history"],
+};
+
+function adminSaveAccordionState() {
+  const perms = new Set(), pws = new Set();
+  document.querySelectorAll('[id^="user-perms-"]').forEach(el => {
+    if (!el.classList.contains("hidden")) perms.add(el.id.replace("user-perms-", ""));
+  });
+  document.querySelectorAll('[id^="user-pw-"]').forEach(el => {
+    if (!el.classList.contains("hidden")) pws.add(el.id.replace("user-pw-", ""));
+  });
+  return { perms, pws };
+}
+
+function adminRestoreAccordionState({ perms, pws }) {
+  perms.forEach(id => { const el = $(`user-perms-${id}`); if (el) el.classList.remove("hidden"); });
+  pws.forEach(id => { const el = $(`user-pw-${id}`); if (el) el.classList.remove("hidden"); });
+}
+
+let _adminRefreshTimer = null;
+let _workerStatusTimer = null;
+function startAdminRefresh() {
+  if (_adminRefreshTimer) return;
+  _adminRefreshTimer = setInterval(() => {
+    if (state.activeTab === "admin") loadAdminPanel(true);
+  }, 60000);
+
+  if (!_workerStatusTimer) {
+    _workerStatusTimer = setInterval(async () => {
+      if (state.activeTab !== "admin") return;
+      await _updateWorkerStatus();
+    }, 30000);
+  }
+
+  // Botão Atualizar — força refresh bypassando cache
+  $("btn-admin-refresh")?.addEventListener("click", async () => {
+    const btn = $("btn-admin-refresh");
+    if (btn) { btn.disabled = true; }
+    await loadAdminPanel(true);
+    if (btn) { btn.disabled = false; }
+  });
+
+  // Wirear botão de reconectar
+  $("btn-worker-ping")?.addEventListener("click", async () => {
+    const btn = $("btn-worker-ping");
+    if (btn) { btn.disabled = true; btn.textContent = "..."; }
+    await _updateWorkerStatus(true);
+    if (btn) { btn.disabled = false; btn.textContent = "Reconectar"; }
+  });
+
+  _updateWorkerStatus();
+}
+
+async function _updateWorkerStatus(reload = false) {
+  try {
+    const s = await api("/api/admin/worker-status");
+    const dot   = $("worker-status-dot");
+    const label = $("worker-status-label");
+    if (!dot || !label) return;
+    if (s.online) {
+      dot.style.background = "#3ba55c";
+      dot.style.boxShadow  = "0 0 6px #3ba55c";
+      label.style.color    = "var(--green)";
+      label.textContent    = "Worker: online";
+    } else {
+      dot.style.background = "#f04747";
+      dot.style.boxShadow  = "0 0 6px #f04747";
+      label.style.color    = "#f04747";
+      const ago = s.lastOnline ? `(último: ${_timeAgo(s.lastOnline)})` : "(nunca conectou)";
+      label.textContent    = `Worker: offline ${ago}`;
+    }
+    if (reload && s.online) await loadAdminPanel(true);
+  } catch {}
+}
+
+function _timeAgo(ts) {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return `${sec}s atrás`;
+  if (sec < 3600) return `${Math.floor(sec/60)}min atrás`;
+  return `${Math.floor(sec/3600)}h atrás`;
+}
+
+async function loadAdminPanel(force = false) {
+  const accordions = adminSaveAccordionState();
+  const allUrl = force ? "/api/admin/all-users?force=1" : "/api/admin/all-users";
   const [pendingRes, allRes] = await Promise.all([
     api("/api/admin/pending"),
-    api("/api/admin/all-users"),
+    api(allUrl),
   ]);
 
   const pendingEl = $("admin-pending-list");
@@ -1929,43 +2395,172 @@ async function loadAdminPanel() {
         </div>
         <div class="admin-actions">
           <button class="btn-approve" onclick="adminApprove('${u.id}')">✅ Aprovar</button>
-          <button class="btn-ban"     onclick="adminBanRemote('${u.id}', '${esc(u.username)}')">🚫 Rejeitar</button>
+          <button class="btn-ban"     onclick="adminRejectPending('${u.id}', '${esc(u.username)}')">❌ Rejeitar</button>
         </div>
       </div>`).join("");
   } else {
     pendingEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum cadastro pendente.</span>";
   }
 
+  // Worker offline mas tem cache — mostra aviso discreto no topo
+  const allUsersSection = $("admin-all-list")?.closest?.(".section-card") || $("admin-all-list")?.parentElement;
+  const existingWarning = $("admin-worker-warning");
+  if (existingWarning) existingWarning.remove();
+  if (allRes.fromCache && allRes.workerError) {
+    const warn = document.createElement("div");
+    warn.id = "admin-worker-warning";
+    warn.style.cssText = "background:rgba(250,166,26,.08);border:1px solid rgba(250,166,26,.25);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:.76rem;color:#FAA61A;display:flex;align-items:center;gap:7px";
+    warn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Worker offline — exibindo dados do cache local`;
+    $("admin-all-list")?.before?.(warn);
+  }
+
   const users = allRes.users || [];
   if (users.length) {
-    allEl.innerHTML = users.map(u => `
-      <div class="admin-user-row" id="all-row-${u.id}">
-        <div class="admin-user-info">
-          <span class="admin-user-name">${esc(u.username)}${u.banned ? " <span style='color:#f04747;font-size:.7rem'>[banido]</span>" : ""}</span>
-          <span class="admin-user-meta">
-            ${u.approved ? "✅ Ativo" : u.rejected ? "❌ Rejeitado" : "⏳ Pendente"}
-            ${u.discordUsername ? ` • Discord: ${esc(u.discordUsername)}` : ""}
-            ${u.discordId ? ` • ID: ${esc(u.discordId)}` : ""}
-          </span>
+    allEl.innerHTML = users.map(u => {
+      const currentRole = u.role || "membro";
+      const currentTabs = u.allowedTabs || DEFAULT_TABS_PER_ROLE[currentRole] || DEFAULT_TABS_PER_ROLE.membro;
+      return `
+      <div style="margin-bottom:10px">
+        <div class="admin-user-row" id="all-row-${u.id}">
+          <div class="admin-user-info">
+            <span class="admin-user-name">${esc(u.username)}${u.banned ? " <span style='color:#f04747;font-size:.7rem'>[banido]</span>" : ""}</span>
+            <span class="admin-user-meta">
+              ${u.approved ? "✅ Ativo" : u.rejected ? "❌ Rejeitado" : "⏳ Pendente"}
+              ${u.discordUsername ? ` • Discord: ${esc(u.discordUsername)}` : ""}
+            </span>
+            <span class="admin-user-meta" style="color:var(--purple-bright);margin-top:2px">Cargo: ${esc(ROLE_LABELS[currentRole] || "Membro")}</span>
+          </div>
+          <div class="admin-actions">
+            <select id="role-select-${u.id}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:.8rem;cursor:pointer" onchange="adminRoleChanged('${u.id}')">
+              ${ALL_ROLES.map(r => `<option value="${r}"${currentRole === r ? " selected" : ""}>${ROLE_LABELS[r]}</option>`).join("")}
+            </select>
+            <button class="btn-approve" onclick="adminSetRole('${u.id}')">Cargo</button>
+            <button class="btn-ghost btn-sm" onclick="adminTogglePerms('${u.id}')">Acesso ▾</button>
+            <button class="btn-ghost btn-sm" onclick="adminTogglePassword('${u.id}')">Senha ▾</button>
+            ${!u.banned ? `<button class="btn-ban" onclick="adminBanRemote('${u.id}', '${esc(u.username)}')">🚫 Banir</button>` : ""}
+          </div>
         </div>
-        <div class="admin-actions">
-          ${!u.banned ? `<button class="btn-ban" onclick="adminBanRemote('${u.id}', '${esc(u.username)}')">🚫 Banir</button>` : ""}
+        <div id="user-perms-${u.id}" class="hidden" style="padding:12px 14px;background:rgba(168,85,247,.05);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px">
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px">Abas permitidas para <strong>${esc(u.username)}</strong>:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+            ${ALL_TABS.map(tab => `
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.8rem;color:var(--text)">
+                <input type="checkbox" id="uperm-${u.id}-${tab}"
+                  ${currentTabs.includes(tab) ? "checked" : ""}
+                  style="accent-color:var(--purple-bright);cursor:pointer;width:14px;height:14px"
+                />
+                ${TAB_LABELS[tab]}
+              </label>`).join("")}
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button class="btn-approve" onclick="adminSaveUserPerms('${u.id}')">Salvar Acesso</button>
+            <div id="user-perms-result-${u.id}" class="result-box hidden"></div>
+          </div>
         </div>
-      </div>`).join("");
+        <div id="user-pw-${u.id}" class="hidden" style="padding:12px 14px;background:rgba(168,85,247,.05);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px">
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px">Nova senha para <strong>${esc(u.username)}</strong>:</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input id="pw-input-${u.id}" type="password" placeholder="Nova senha (mín. 4 caracteres)"
+              style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:.82rem;min-width:220px"
+              onkeydown="if(event.key==='Enter') adminSavePassword('${u.id}')"
+            />
+            <button class="btn-approve" onclick="adminSavePassword('${u.id}')">Alterar Senha</button>
+            <div id="user-pw-result-${u.id}" class="result-box hidden"></div>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
   } else {
     allEl.innerHTML = "<span style='color:var(--text-dim);font-size:.85rem'>Nenhum usuário registrado ainda.</span>";
+  }
+
+  adminRestoreAccordionState(accordions);
+}
+
+function adminTogglePerms(userId) {
+  const el = $(`user-perms-${userId}`);
+  if (el) el.classList.toggle("hidden");
+}
+
+function adminTogglePassword(userId) {
+  const el = $(`user-pw-${userId}`);
+  if (el) {
+    el.classList.toggle("hidden");
+    if (!el.classList.contains("hidden")) $(`pw-input-${userId}`)?.focus();
+  }
+}
+
+async function adminSavePassword(userId) {
+  const input = $(`pw-input-${userId}`);
+  const resEl = $(`user-pw-result-${userId}`);
+  if (!input) return;
+  const newPassword = input.value.trim();
+  if (!newPassword) { showResult(resEl, "Digite a nova senha.", "err"); return; }
+  const res = await api("/api/admin/set-password", { userId, newPassword });
+  if (res.ok) {
+    input.value = "";
+    showResult(resEl, "Senha alterada!", "ok");
+  } else {
+    showResult(resEl, res.error || "Erro ao alterar senha.", "err");
+  }
+}
+
+function adminRoleChanged(userId) {
+  const select = $(`role-select-${userId}`);
+  if (!select) return;
+  const role = select.value;
+  const defaults = DEFAULT_TABS_PER_ROLE[role] || DEFAULT_TABS_PER_ROLE.membro;
+  ALL_TABS.forEach(tab => {
+    const cb = $(`uperm-${userId}-${tab}`);
+    if (cb) cb.checked = defaults.includes(tab);
+  });
+}
+
+async function adminSetRole(userId) {
+  const select = $(`role-select-${userId}`);
+  if (!select) return;
+  const role = select.value;
+  const resEl = $("admin-role-result");
+  const res = await api("/api/admin/set-role", { userId, role });
+  if (res.ok) {
+    showResult(resEl, `Cargo de ${ROLE_LABELS[role]} definido!`, "ok");
+    loadAdminPanel(true);
+  } else {
+    showResult(resEl, res.error || "Erro ao definir cargo.", "err");
+  }
+}
+
+async function adminSaveUserPerms(userId) {
+  const tabs = ALL_TABS.filter(tab => {
+    const cb = $(`uperm-${userId}-${tab}`);
+    return cb && cb.checked;
+  });
+  const resEl = $(`user-perms-result-${userId}`);
+  const res = await api("/api/admin/set-user-perms", { userId, tabs });
+  if (res.ok) {
+    showResult(resEl, "Acesso salvo!", "ok");
+    loadAdminPanel(true);
+  } else {
+    showResult(resEl, res.error || "Erro ao salvar.", "err");
   }
 }
 
 async function adminApprove(userId) {
   const res = await api("/api/admin/approve", { userId });
-  if (res.ok) loadAdminPanel();
+  if (res.ok) loadAdminPanel(true);
   else alert(res.error || "Erro ao aprovar.");
+}
+
+async function adminRejectPending(userId, username) {
+  if (!confirm(`Rejeitar "${username}"?`)) return;
+  const res = await api("/api/admin/reject", { userId });
+  if (res.ok) loadAdminPanel(true);
+  else alert(res.error || "Erro ao rejeitar.");
 }
 
 async function adminBanRemote(userId, username) {
   if (!confirm(`Banir "${username}"? O acesso será revogado em todos os dispositivos.`)) return;
   const res = await api("/api/admin/ban-remote", { userId });
-  if (res.ok) loadAdminPanel();
+  if (res.ok) loadAdminPanel(true);
   else alert(res.error || "Erro ao banir.");
 }

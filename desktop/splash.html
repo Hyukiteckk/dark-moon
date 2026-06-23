@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#030104;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    height:100vh; font-family:sans-serif; color:#fff;
+    user-select:none; -webkit-app-region:drag;
+  }
+  .logo {
+    font-family:'Dancing Script', cursive, sans-serif;
+    font-size:2.8rem; font-weight:700;
+    background: linear-gradient(135deg, #f3e0ff 0%, #c084fc 45%, #818cf8 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 14px rgba(192,132,252,.7));
+    margin-bottom:28px;
+    letter-spacing:1px;
+  }
+  .spinner {
+    width:38px; height:38px;
+    border:3px solid rgba(168,85,247,.2);
+    border-top-color:#a855f7;
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+    margin-bottom:14px;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .msg { font-size:.82rem; color:rgba(255,255,255,.35); letter-spacing:2px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+  <div class="logo">Dark Moon</div>
+  <div class="spinner"></div>
+  <div class="msg">Iniciando...</div>
+</body>
+</html>

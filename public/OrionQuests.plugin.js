@@ -17,7 +17,10 @@ module.exports = class OrionQuests {
                 const d = await r.json();
                 if (d.command === 'start' && !window.orionLock) {
                     window.orionLock = true;
-                    this._launch();
+                    this._launch(d.questIds || [], false);
+                } else if (d.command === 'discover' && !window.orionLock) {
+                    window.orionLock = true;
+                    this._launch([], true);
                 } else if (d.command === 'idle' || d.command === 'stop') {
                     if (window._orionRuntime) window._orionRuntime.running = false;
                     window.orionLock = false;
@@ -41,7 +44,7 @@ module.exports = class OrionQuests {
         }, 1000);
     }
 
-    _launch() {
+    _launch(allowedIds = [], discoverOnly = false) {
         (async () => {
             "use strict";
             
@@ -1697,9 +1700,47 @@ module.exports = class OrionQuests {
                     if (CONFIG.AUTO_START) {
                         RUNTIME.autoEnroll = true;
                         RUNTIME.autoClaim = true;
-                        pickerResult = { selectedQuests: new Set(quests.map(q => q.id)), autoEnroll: true, autoClaim: true, playSound: false };
-                        Logger.log(`[Auto] ${quests.length} missão(ões) encontrada(s) — iniciando automaticamente...`, 'info');
-                        _dmReport({ type: 'quests_found', quests: quests.map(q => ({ id: q.id, name: q.config?.messages?.questName ?? q.id })) });
+                        // If allowedIds provided, only run those; otherwise run all
+                        const selectedSet = allowedIds.length > 0
+                            ? new Set(quests.filter(q => allowedIds.includes(q.id)).map(q => q.id))
+                            : new Set(quests.map(q => q.id));
+                        pickerResult = { selectedQuests: selectedSet, autoEnroll: true, autoClaim: true, playSound: false };
+                        Logger.log(`[Auto] ${quests.length} missão(ões) encontrada(s), ${selectedSet.size} selecionada(s)...`, 'info');
+                        const questsFoundPayload = { type: 'quests_found', quests: quests.map(q => {
+                            const cfg = q.config?.taskConfig ?? q.config?.taskConfigV2;
+                            const keys = cfg?.tasks ? Object.keys(cfg.tasks) : [];
+                            const qtype = keys.some(k => k.includes('VIDEO')) ? 'VIDEO'
+                                : keys.some(k => k.includes('STREAM')) ? 'STREAM'
+                                : keys.some(k => k.includes('ACHIEVEMENT')) ? 'ACHIEVEMENT'
+                                : keys.some(k => k.includes('ACTIVITY')) ? 'ACTIVITY'
+                                : keys.some(k => k.includes('PLAY')) ? 'GAME' : null;
+                            const app = q.config?.application ?? {};
+                            const msgs = q.config?.messages ?? {};
+                            const applicationId = app.id ?? q.config?.application_id ?? q.application_id ?? null;
+                            return {
+                                id: q.id,
+                                name: msgs.questName ?? q.id,
+                                appId: applicationId,
+                                appIcon: app.icon ?? null,
+                                heroImage: q.config?.assets?.hero ?? q.config?.keyArt ?? q.config?.heroImageHash ?? null,
+                                rewardText: q.config?.rewardsConfig?.rewards?.[0]?.messages?.name ?? null,
+                                type: qtype
+                            };
+                        }) };
+                        if (discoverOnly) {
+                            // Envia quests_found e discover_done diretamente em ordem garantida (sem fila)
+                            try {
+                                for (const item of [questsFoundPayload, { type: 'discover_done' }]) {
+                                    await fetch('http://127.0.0.1:4100/api/orion/progress', {
+                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(item)
+                                    });
+                                }
+                            } catch(_) {}
+                            window.orionLock = false;
+                            return;
+                        }
+                        _dmReport(questsFoundPayload);
                     } else {
                         pickerResult = await Logger.showQuestPicker(quests);
                         if (!RUNTIME.running) return;

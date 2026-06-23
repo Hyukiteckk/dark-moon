@@ -95,6 +95,7 @@ export class BotRuntime extends EventEmitter {
   }
 
   getLogs() { return this._logs.slice(); }
+  clearLogs() { this._logs = []; this._logId = 0; }
 
   loadConfig() {
     if (!existsSync(this.configPath)) return { guildId: "", tokens: [], moderationToken: "" };
@@ -277,7 +278,7 @@ export class BotRuntime extends EventEmitter {
   }
 
   async joinVoiceWithToken(token, guildId, channelId, opts = {}) {
-    const { fakeDeaf = false, selfMute = true } = typeof opts === "boolean" ? { fakeDeaf: opts } : opts;
+    const { fakeDeaf = false, selfMute = false } = typeof opts === "boolean" ? { fakeDeaf: opts } : opts;
     if (this.sessions.has(token)) {
       const s = this.sessions.get(token);
       await this._leaveVoice(token, s.client);
@@ -310,15 +311,20 @@ export class BotRuntime extends EventEmitter {
       channelId,
       guildId,
       adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: !fakeDeaf,
+      selfDeaf: false,
       selfMute,
     });
 
     if (fakeDeaf) {
-      setTimeout(() => {
+      const sendFakeDeaf = () => {
         const shard = client.ws.shards.first();
         if (shard) shard.send({ op: 4, d: { guild_id: guildId, channel_id: channelId, self_mute: selfMute, self_deaf: true } });
-      }, 600);
+      };
+      setTimeout(sendFakeDeaf, 600);
+      // Re-envia se reconectar antes do fakeDeaf ser aplicado
+      connection.on('stateChange', (_, newState) => {
+        if (newState.status === 'ready') setTimeout(sendFakeDeaf, 300);
+      });
     }
 
     const tag = client.user.tag || client.user.username;
@@ -1495,7 +1501,154 @@ export class BotRuntime extends EventEmitter {
 
     const isBot = Boolean(targetUser.bot);
 
-    // ── 6) Nick cache (histórico acumulado) ────────────────────────────────
+    // ── 6) Mensagens Recentes (search API) ─────────────────────────────────
+    const recentMessages = [];
+    const searchGuilds = nicknames.slice(0, 6);
+    for (const n of searchGuilds) {
+      const tok = allTokens[n.tokenIndex] || allTokens[0];
+      try {
+        const sr = await discordApiRequest(tok, `/guilds/${n.guildId}/messages/search?author_id=${targetId}&include_nsfw=true`);
+        if (Array.isArray(sr?.messages)) {
+          for (const group of sr.messages) {
+            const msg = group.find((m) => m.hit) || group[0];
+            if (msg?.author?.id === targetId) {
+              recentMessages.push({
+                guildId: n.guildId,
+                guildName: n.guildName,
+                channelId: msg.channel_id,
+                content: msg.content || '',
+                attachments: (msg.attachments || []).length,
+                embeds: (msg.embeds || []).length,
+                timestamp: msg.timestamp,
+                msgId: msg.id,
+              });
+            }
+          }
+        }
+      } catch {}
+      await sleep(300);
+    }
+    recentMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const recentMsgsFinal = recentMessages.slice(0, 20);
+
+    // ── 7) Status de Banimento (requer MANAGE_GUILD no servidor) ────────────
+    const banResults = [];
+    for (const n of nicknames) {
+      const tok = allTokens[n.tokenIndex] || allTokens[0];
+      try {
+        await discordApiRequest(tok, `/guilds/${n.guildId}/bans/${targetId}`);
+        banResults.push({ guildId: n.guildId, guildName: n.guildName, banned: true, reason: null });
+      } catch (e) {
+        const errMsg = e.message || '';
+        if (errMsg.includes('404') || errMsg.includes('10026') || errMsg.includes('Unknown Ban')) {
+          banResults.push({ guildId: n.guildId, guildName: n.guildName, banned: false, reason: null });
+        }
+        // 403 = sem permissão — pula silenciosamente
+      }
+      await sleep(80);
+    }
+
+    // ── 8) Atividade de Voz (estado atual) ─────────────────────────────────
+    const voiceStates = [];
+
+    // Verifica se algum token em allTokens pertence ao próprio alvo
+    let targetOwnTok = null;
+    for (const tok of allTokens) {
+      try {
+        const me = await discordApiRequest(tok, '/users/@me');
+        if (me?.id === targetId) { targetOwnTok = tok; break; }
+      } catch {}
+    }
+
+    // Prioridade 1: cache do Gateway (clientes WebSocket ativos) — mais confiável
+    for (const [, session] of this.sessions) {
+      const client = session.client;
+      if (!client?.guilds?.cache) continue;
+      for (const [guildId, guild] of client.guilds.cache) {
+        const vs = guild.voiceStates?.cache?.get(targetId);
+        if (vs?.channelId && !voiceStates.find(s => s.guildId === guildId)) {
+          voiceStates.push({
+            guildId,
+            guildName: guild.name || guildId,
+            channelId: vs.channelId,
+            selfMute: vs.selfMute || false,
+            selfDeaf: vs.selfDeaf || false,
+            selfStream: vs.streaming || false,
+            selfVideo: vs.selfVideo || false,
+            suppress: vs.suppress || false,
+          });
+        }
+      }
+    }
+
+    // Prioridade 2: token do próprio alvo via REST /voice-states/@me
+    if (targetOwnTok) {
+      const targetGuilds = tokenGuildMap.get(targetOwnTok) || [];
+      for (const g of targetGuilds) {
+        if (voiceStates.find(s => s.guildId === g.id)) continue;
+        try {
+          const vs = await discordApiRequest(targetOwnTok, `/guilds/${g.id}/voice-states/@me`);
+          if (vs?.channel_id) {
+            voiceStates.push({
+              guildId: g.id, guildName: g.name || g.id,
+              channelId: vs.channel_id,
+              selfMute: vs.self_mute || false, selfDeaf: vs.self_deaf || false,
+              selfStream: vs.self_stream || false, selfVideo: vs.self_video || false,
+              suppress: vs.suppress || false,
+            });
+          }
+        } catch {}
+        await sleep(60);
+      }
+    }
+
+    // Prioridade 3: REST com tokens de terceiros (requer MOVE_MEMBERS — pode falhar)
+    if (voiceStates.length === 0) {
+      for (const n of nicknames) {
+        const tok = allTokens[n.tokenIndex] || allTokens[0];
+        try {
+          const vs = await discordApiRequest(tok, `/guilds/${n.guildId}/voice-states/${targetId}`);
+          if (vs?.channel_id) {
+            voiceStates.push({
+              guildId: n.guildId, guildName: n.guildName,
+              channelId: vs.channel_id,
+              selfMute: vs.self_mute || false, selfDeaf: vs.self_deaf || false,
+              selfStream: vs.self_stream || false, selfVideo: vs.self_video || false,
+              suppress: vs.suppress || false,
+            });
+          }
+        } catch {}
+        await sleep(80);
+      }
+    }
+
+    // ── 9) Top Conversas (DMs mais recentes via token do alvo) ─────────────
+    const topConversations = [];
+    if (targetOwnTok) {
+      try {
+        const dms = await discordApiRequest(targetOwnTok, '/users/@me/channels');
+        if (Array.isArray(dms)) {
+          for (const dm of dms) {
+            if (dm.type !== 1) continue; // só DMs diretos (não grupos)
+            const recipient = dm.recipients?.[0];
+            if (!recipient) continue;
+            topConversations.push({
+              userId: recipient.id,
+              username: recipient.username,
+              globalName: recipient.global_name || null,
+              avatar: recipient.avatar || null,
+              lastMessageId: dm.last_message_id || null,
+              lastMessageTime: dm.last_message_id
+                ? new Date(Number((BigInt(dm.last_message_id) >> 22n) + 1420070400000n)).toISOString()
+                : null,
+            });
+            if (topConversations.length >= 15) break;
+          }
+        }
+      } catch {}
+    }
+
+    // ── 10) Nick cache (histórico acumulado) ───────────────────────────────
     const cache = this.loadNickCache();
     if (!cache[targetId]) cache[targetId] = [];
     const seenNow = new Set(nicknames.map((n) => `${n.guildId}:${n.nick}`));
@@ -1553,6 +1706,10 @@ export class BotRuntime extends EventEmitter {
       foundGuilds,
       mutualFriends, connections, nicknames, nicksHistory, uniqueNickValues,
       altAnalysis: { risk, accountAgeDays, reasons },
+      recentMessages: recentMsgsFinal,
+      banResults,
+      voiceStates,
+      topConversations,
       dmChannelId, isBot,
       scanStats: {
         tokensUsed: allTokens.length,
@@ -1686,24 +1843,40 @@ export class BotRuntime extends EventEmitter {
 
         for (const msg of batch) {
           if (job.stopped || job.deleted >= maxDelete) break;
-          try {
-            await discordApiRequest(token, `/channels/${channelId}/messages/${msg.id}`, { method: "DELETE" });
-            job.deleted++;
-            if (job.deleted % 10 === 0 || job.deleted <= 5) {
-              this._addLog("info", `Nuke: ${job.deleted} apagadas, ${job.scanned} escaneadas...`);
-            }
-          } catch (e) {
-            if (e.message?.includes("429")) {
-              this._addLog("warn", "Nuke: rate limit — aguardando 5s...");
-              await sleep(5000);
-            } else if (e.message?.includes("403")) {
-              job.failed++;
-              this._addLog("warn", `Nuke: sem permissão para apagar msg ${msg.id} (provavelmente de outro usuário)`);
-            } else {
-              job.failed++;
+
+          let attempts = 0;
+          while (attempts < 4) {
+            try {
+              await discordApiRequest(token, `/channels/${channelId}/messages/${msg.id}`, { method: "DELETE" });
+              job.deleted++;
+              if (job.deleted % 10 === 0 || job.deleted <= 5)
+                this._addLog("info", `Nuke: ${job.deleted} apagadas, ${job.scanned} escaneadas...`);
+              break;
+            } catch (e) {
+              if (e.message?.includes("429")) {
+                let waitMs = 5000;
+                try {
+                  const m = e.message.match(/\{[\s\S]*\}/);
+                  if (m) { const b = JSON.parse(m[0]); if (b.retry_after) waitMs = Math.ceil(b.retry_after * 1000) + 500; }
+                } catch {}
+                this._addLog("warn", `Nuke: rate limit — aguardando ${(waitMs / 1000).toFixed(1)}s...`);
+                await sleep(waitMs);
+                attempts++;
+              } else if (e.message?.includes("403")) {
+                job.failed++;
+                this._addLog("warn", `Nuke: sem permissão para apagar msg ${msg.id}`);
+                break;
+              } else if (e.name === "AbortError" || e.message?.includes("abort") || e.message?.includes("timeout")) {
+                this._addLog("warn", "Nuke: timeout na requisição — retentando...");
+                await sleep(2000);
+                attempts++;
+              } else {
+                job.failed++;
+                break;
+              }
             }
           }
-          await sleep(100);
+          await sleep(350);
         }
 
         if (messages.length < 100) break;

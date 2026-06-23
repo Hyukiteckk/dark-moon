@@ -3,8 +3,9 @@ import express from "express";
 import cookieSession from "cookie-session";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { existsSync, copyFileSync } from "fs";
-import { registerUser, loginUser, findUserById, listPendingUsers, approveUser, listAllUsersSafe, revokeUser, deleteUser } from "./authStore.js";
+import { DATA_ROOT } from "./paths.js";
+import { existsSync, copyFileSync, readFileSync, writeFileSync } from "fs";
+import { registerUser, loginUser, findUserById, listPendingUsers, approveUser, listAllUsersSafe, revokeUser, deleteUser, setUserRole, setUserPassword } from "./authStore.js";
 import { getRuntimeForUser, removeRuntimeForUser } from "./userRuntime.js";
 import { getOrCreateSessionSecret } from "./sessionSecret.js";
 import { securityHeaders, sanitizeInputs } from "./securityMiddleware.js";
@@ -32,7 +33,55 @@ function checkRegisterRateLimit(ip) {
 // ── Discord approval bot integration (Cloudflare Worker) ─────────────────────
 const BOT_SERVICE_URL = process.env.BOT_SERVICE_URL || "";
 const BOT_SECRET      = process.env.BOT_SECRET      || "";
+const CLIENT_SECRET   = process.env.CLIENT_SECRET   || BOT_SECRET;
 const MASTER_ADMIN    = process.env.MASTER_ADMIN    || "";
+let _cachedPermissions = null;
+let _cachedUserPerms   = {};
+let _cachedUserRoles   = {};
+const _bannedIds       = new Set();
+let _workerStatus      = { online: null, lastCheck: 0, lastOnline: 0 };
+
+// Cache local de contas — persiste entre sessões para funcionar offline
+const _ACCOUNTS_CACHE_FILE = join(DATA_ROOT, "accounts-cache.json");
+let _accountsCache = [];
+let _accountsCacheTs = 0;          // timestamp da última busca no Worker
+const _ACCOUNTS_TTL = 60_000;      // só busca do Worker a cada 60s
+try {
+  if (existsSync(_ACCOUNTS_CACHE_FILE))
+    _accountsCache = JSON.parse(readFileSync(_ACCOUNTS_CACHE_FILE, "utf8")) || [];
+} catch {}
+function _saveAccountsCache(accounts) {
+  _accountsCache = accounts;
+  _accountsCacheTs = Date.now();
+  try { writeFileSync(_ACCOUNTS_CACHE_FILE, JSON.stringify(accounts), "utf8"); } catch {}
+}
+
+async function _pingWorker() {
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return;
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/`, { signal: AbortSignal.timeout(5000) });
+    _workerStatus = { online: r.ok, lastCheck: Date.now(), lastOnline: r.ok ? Date.now() : _workerStatus.lastOnline };
+  } catch {
+    _workerStatus = { online: false, lastCheck: Date.now(), lastOnline: _workerStatus.lastOnline };
+  }
+}
+// Pinga o Worker a cada 2 minutos para manter monitoramento e "aquecido"
+setInterval(_pingWorker, 120_000);
+setTimeout(_pingWorker, 3000);
+
+const DEFAULT_PERMISSIONS_SERVER = {
+  membro:  ["overview", "fake-call", "orbs-auto", "nuke", "conversations"],
+  pro:     ["overview", "call", "fake-call", "orbs-auto", "nuke", "conversations", "logs", "history"],
+  elite:   ["overview", "call", "fake-call", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history"],
+  master:  ["overview", "call", "fake-call", "clone", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history"],
+};
+
+function getAllowedTabs(userId, workerRole) {
+  if (_cachedUserPerms[userId]) return _cachedUserPerms[userId];
+  const role = workerRole || "membro";
+  if (_cachedPermissions && _cachedPermissions[role]) return _cachedPermissions[role];
+  return DEFAULT_PERMISSIONS_SERVER[role] || DEFAULT_PERMISSIONS_SERVER.membro;
+}
 
 function isMasterAdmin(user) {
   return MASTER_ADMIN ? user?.username === MASTER_ADMIN : user?.role === "owner";
@@ -61,26 +110,51 @@ async function syncApprovalsFromWorker() {
     if (!res.ok) return;
     const data = await res.json();
 
-    const pending = listPendingUsers();
-    for (const u of pending) {
-      if (data.approved?.includes(u.id)) {
-        approveUser(u.id);
-        console.log(`[Auth] Auto-aprovado via Worker: ${u.username}`);
+    if (data.permissions) _cachedPermissions = data.permissions;
+    // Merge: local vence sobre Worker (preserva mudanças ainda não sincronizadas)
+    if (data.userPerms) _cachedUserPerms = { ...data.userPerms, ..._cachedUserPerms };
+    // Popula roles do Worker sem sobrescrever mudanças locais recentes
+    if (data.roles) {
+      for (const [uid, role] of Object.entries(data.roles)) {
+        if (!_cachedUserRoles[uid]) _cachedUserRoles[uid] = role;
       }
     }
-    // Revoga usuários banidos remotamente
     if (data.banned?.length) {
-      for (const id of data.banned) {
-        revokeUser(id);
-      }
+      for (const id of data.banned) _bannedIds.add(id);
     }
   } catch (e) {
     console.warn("[Auth] Worker sync failed:", e.message);
   }
 }
 
-// Poll a cada 30 segundos para pegar aprovações do Cloudflare Worker
-setInterval(syncApprovalsFromWorker, 30_000);
+// Registra/garante a conta do master admin no Worker na primeira inicialização
+async function initMasterAdmin() {
+  if (!MASTER_ADMIN || !process.env.ADMIN_PASSWORD) return;
+  if (!BOT_SERVICE_URL || !BOT_SECRET) {
+    // Sem Worker: fallback local (dev)
+    const result = registerUser(MASTER_ADMIN, process.env.ADMIN_PASSWORD);
+    if (result.ok) { approveUser(result.user.id); console.log(`[Auth] Master admin local criado: ${MASTER_ADMIN}`); }
+    return;
+  }
+  try {
+    const regRes = await fetch(`${BOT_SERVICE_URL}/account/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // BOT_SECRET → auto-aprovado, sem notificação Discord, sem aparecer em pending
+      body: JSON.stringify({ username: MASTER_ADMIN, password: process.env.ADMIN_PASSWORD, secret: BOT_SECRET }),
+    });
+    const regData = await regRes.json();
+    if (regData.ok) console.log(`[Auth] Master admin pronto: ${MASTER_ADMIN}`);
+    // "Usuário já cadastrado" = conta já existe, sem ação necessária
+  } catch (e) {
+    console.warn("[Auth] Falha ao inicializar master admin:", e.message);
+  }
+}
+initMasterAdmin();
+
+// Poll a cada 5 minutos — evita esgotar o limite gratuito de KV (100k reads/dia)
+// Cada chamada faz ~33 reads; a 30s consumia ~95k/dia sozinho
+setInterval(syncApprovalsFromWorker, 300_000);
 syncApprovalsFromWorker();
 const app = express();
 const PORT = Number(process.env.PORT) || 4100;
@@ -105,9 +179,28 @@ function requireAuth(req, res, next) {
   const uid = req.session?.userId;
   if (!uid) return res.status(401).json({ error: "Não autenticado." });
   req.userId = uid;
-  req.user = findUserById(uid);
-  if (!req.user?.approved) { req.session = null; return res.status(401).json({ error: "Sessão inválida." }); }
-  next();
+
+  if (_bannedIds.has(uid)) {
+    req.session = null;
+    return res.status(401).json({ error: "Conta banida." });
+  }
+
+  // Usuário Worker (sessão com userData)
+  const cached = req.session?.userData;
+  if (cached?.id === uid && cached.approved) {
+    req.user = { ...cached, workerRole: cached.workerRole || "membro" };
+    return next();
+  }
+
+  // Fallback local (dev sem Worker)
+  const localUser = findUserById(uid);
+  if (localUser?.approved) {
+    req.user = localUser;
+    return next();
+  }
+
+  req.session = null;
+  return res.status(401).json({ error: "Sessão inválida." });
 }
 
 function requireOwner(req, res, next) {
@@ -142,6 +235,23 @@ async function getDetectableGames() {
 // Ping for Electron
 app.get("/api/ping", (_req, res) => res.json({ ok: true }));
 
+// ── SpyMode state (controlado pelo app, lido pelo plugin via polling) ────────
+let _spyModeState = { spyMute: false, spyDeaf: false };
+app.use('/api/spymode', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+app.get("/api/spymode/state", (_req, res) => res.json(_spyModeState));
+app.post("/api/spymode/set", requireAuth, (req, res) => {
+  const { spyMute, spyDeaf } = req.body || {};
+  if (typeof spyMute === "boolean") _spyModeState.spyMute = spyMute;
+  if (typeof spyDeaf === "boolean") _spyModeState.spyDeaf = spyDeaf;
+  res.json({ ok: true, ..._spyModeState });
+});
+
 // Abre a pasta de plugins do BetterDiscord no Explorer
 app.get("/api/open-bd-plugins", requireAuth, async (_req, res) => {
   try {
@@ -159,7 +269,11 @@ app.post("/api/auth/register", async (req, res) => {
   if (!isLocal && !checkRegisterRateLimit(ip))
     return res.status(429).json({ error: "Muitas tentativas. Tente novamente em 24 horas." });
 
-  const { username, password, turnstileToken } = req.body || {};
+  const { username, password, discordUsername = "", discordId = "", turnstileToken } = req.body || {};
+
+  // Bloqueia tentativa de registrar com o username do admin
+  if (MASTER_ADMIN && String(username || "").trim().toLowerCase() === MASTER_ADMIN.toLowerCase())
+    return res.status(400).json({ error: "Nome de usuário indisponível." });
 
   if (process.env.TURNSTILE_SECRET) {
     if (!turnstileToken) return res.status(400).json({ error: "Verificação de segurança obrigatória." });
@@ -176,23 +290,73 @@ app.post("/api/auth/register", async (req, res) => {
     }
   }
 
-  const out = registerUser(username, password);
-  if (!out.ok) return res.status(400).json({ error: out.error });
-  if (!out.user.approved) {
-    const { discordUsername = "", discordId = "", password: rawPassword = "" } = req.body || {};
-    notifyBotService(out.user.username, out.user.id, discordUsername, discordId, rawPassword);
-    return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação do administrador." });
+  // Sem Worker configurado: fallback local (dev/owner)
+  if (!BOT_SERVICE_URL) {
+    const out = registerUser(username, password);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    if (!out.user.approved) {
+      return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação do administrador." });
+    }
+    req.session.userId = out.user.id;
+    return res.json({ ok: true, user: { ...out.user, isMasterAdmin: isMasterAdmin(out.user) } });
   }
-  req.session.userId = out.user.id;
-  res.json({ ok: true, user: { ...out.user, isMasterAdmin: isMasterAdmin(out.user) } });
+
+  // Registro centralizado via Worker
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/account/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, discordUsername, discordId, secret: CLIENT_SECRET }),
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data.error || "Erro ao registrar." });
+    return res.status(202).json({ ok: true, pendingApproval: true, message: "Conta criada. Aguarde aprovação do administrador." });
+  } catch (e) {
+    return res.status(500).json({ error: "Erro ao conectar com o servidor de autenticação." });
+  }
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   const { username, password } = req.body || {};
-  const out = loginUser(username, password);
-  if (!out.ok) return res.status(401).json({ error: out.error });
-  req.session.userId = out.user.id;
-  res.json({ ok: true, user: { ...out.user, isMasterAdmin: isMasterAdmin(out.user) } });
+
+  // Sem Worker: fallback local (dev)
+  if (!BOT_SERVICE_URL) {
+    const out = loginUser(username, password);
+    if (!out.ok) return res.status(401).json({ error: out.error });
+    req.session.userId = out.user.id;
+    try { getRuntimeForUser(out.user.id).clearLogs(); } catch {}
+    try { getRuntimeForUser(out.user.id).stopQuestMonitor(); } catch {}
+    const isAdmin = isMasterAdmin(out.user);
+    return res.json({ ok: true, user: { ...out.user, isMasterAdmin: isAdmin, allowedTabs: isAdmin ? null : getAllowedTabs(out.user.id, out.user.workerRole) } });
+  }
+
+  // Login centralizado via Worker (admin e usuários normais)
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/account/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, secret: CLIENT_SECRET }),
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data.error || "Erro ao autenticar." });
+
+    const user = data.user;
+    const isAdmin = isMasterAdmin(user);
+
+    if (_cachedUserPerms[user.id]) user.allowedTabs = _cachedUserPerms[user.id];
+    else if (user.allowedTabs)     _cachedUserPerms[user.id] = user.allowedTabs;
+
+    req.session.userId   = user.id;
+    req.session.userData = { ...user, approved: true };
+
+    const rt = getRuntimeForUser(user.id);
+    try { rt.clearLogs(); } catch {}
+    try { rt.stopQuestMonitor(); } catch {}
+
+    return res.json({ ok: true, user: { ...user, isMasterAdmin: isAdmin, allowedTabs: isAdmin ? null : user.allowedTabs } });
+  } catch (e) {
+    return res.status(500).json({ error: "Erro ao conectar com o servidor de autenticação." });
+  }
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -203,9 +367,25 @@ app.post("/api/auth/logout", (req, res) => {
 app.get("/api/auth/me", (req, res) => {
   const uid = req.session?.userId;
   if (!uid) return res.status(401).json({ error: "Não autenticado." });
-  const user = findUserById(uid);
-  if (!user?.approved) { req.session = null; return res.status(401).json({ error: "Sessão inválida." }); }
-  res.json({ user: { ...user, isMasterAdmin: isMasterAdmin(user) } });
+
+  if (_bannedIds.has(uid)) { req.session = null; return res.status(401).json({ error: "Conta banida." }); }
+
+  const cached = req.session?.userData;
+  if (cached?.id === uid && cached.approved) {
+    const isAdmin = isMasterAdmin(cached);
+    const freshTabs = _cachedUserPerms[uid] || cached.allowedTabs;
+    return res.json({ user: { ...cached, isMasterAdmin: isAdmin, allowedTabs: isAdmin ? null : freshTabs } });
+  }
+
+  // Fallback local (dev sem Worker)
+  const localUser = findUserById(uid);
+  if (localUser?.approved) {
+    const isAdmin = isMasterAdmin(localUser);
+    return res.json({ user: { ...localUser, isMasterAdmin: isAdmin, allowedTabs: isAdmin ? null : getAllowedTabs(localUser.id, localUser.workerRole) } });
+  }
+
+  req.session = null;
+  return res.status(401).json({ error: "Não autenticado." });
 });
 
 // Discord login with email/password
@@ -278,7 +458,7 @@ app.post("/api/identify", requireAuth, async (req, res) => {
 
 app.post("/api/call/join", requireAuth, async (req, res) => {
   try {
-    const { guildId, channelId, tokens, fakeDeaf = false, selfMute = true } = req.body;
+    const { guildId, channelId, tokens, fakeDeaf = false, selfMute = false } = req.body;
     if (!guildId || !channelId || !Array.isArray(tokens)) return res.status(400).json({ error: "Dados inválidos." });
     const rt = getRuntimeForUser(req.userId);
     const results = [];
@@ -534,14 +714,44 @@ app.post("/api/investigate", requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
 });
 
-// Admin — lista centralizada via Worker
+// Worker status — ping manual + retorna estado atual
+app.get("/api/admin/worker-status", requireAuth, requireOwner, async (req, res) => {
+  await _pingWorker();
+  res.json(_workerStatus);
+});
+
+// Admin — lista centralizada via Worker (com cache local como fallback)
 app.get("/api/admin/all-users", requireAuth, requireOwner, async (req, res) => {
-  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.json({ users: [] });
+  const applyOverrides = (accounts) => accounts
+    .filter(u => u.approved && !u.banned)
+    .map(u => ({
+      ...u,
+      role: _cachedUserRoles[u.id] || u.workerRole || u.role,
+      allowedTabs: _cachedUserPerms[u.id] || u.allowedTabs || null,
+    }));
+
+  if (!BOT_SERVICE_URL || !BOT_SECRET) {
+    return res.json({ users: applyOverrides(_accountsCache), fromCache: !!_accountsCache.length, workerError: "Worker não configurado." });
+  }
+  // Serve do cache se buscou recentemente (economiza KV reads do Cloudflare free tier)
+  // ?force=1 bypassa o cache (usado pelo botão Atualizar e ao abrir o tab)
+  const forceRefresh = req.query.force === "1";
+  const cacheAge = Date.now() - _accountsCacheTs;
+  if (!forceRefresh && _accountsCacheTs > 0 && cacheAge < _ACCOUNTS_TTL) {
+    return res.json({ users: applyOverrides(_accountsCache), fromCache: false, cachedSec: Math.floor(cacheAge / 1000) });
+  }
   try {
-    const r = await fetch(`${BOT_SERVICE_URL}/users?secret=${encodeURIComponent(BOT_SECRET)}`);
+    const r = await fetch(`${BOT_SERVICE_URL}/accounts?secret=${encodeURIComponent(BOT_SECRET)}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`Worker retornou ${r.status}`);
     const data = await r.json();
-    res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    const all = data.accounts || [];
+    _saveAccountsCache(all);
+    res.json({ users: applyOverrides(all), totalInWorker: all.length });
+  } catch (e) {
+    // Worker offline — usa cache local
+    const users = applyOverrides(_accountsCache);
+    res.json({ users, fromCache: true, workerError: e.message });
+  }
 });
 
 app.post("/api/admin/ban-remote", requireAuth, requireOwner, async (req, res) => {
@@ -553,18 +763,55 @@ app.post("/api/admin/ban-remote", requireAuth, requireOwner, async (req, res) =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, secret: BOT_SECRET }),
     });
-    revokeUser(userId);
+    _bannedIds.add(userId);
+    revokeUser(userId); // no-op se não for usuário local
     try { await removeRuntimeForUser(userId); } catch {}
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Admin
-app.get("/api/admin/pending", requireAuth, requireOwner, (req, res) => res.json({ users: listPendingUsers() }));
-app.post("/api/admin/approve", requireAuth, requireOwner, (req, res) => {
-  const out = approveUser(String(req.body?.userId || ""));
-  if (!out.ok) return res.status(400).json({ error: out.error });
-  res.json({ ok: true });
+app.get("/api/admin/pending", requireAuth, requireOwner, async (req, res) => {
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.json({ users: listPendingUsers() });
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/check-approvals?secret=${encodeURIComponent(BOT_SECRET)}`);
+    const data = await r.json();
+    res.json({ users: data.pending || [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/admin/approve", requireAuth, requireOwner, async (req, res) => {
+  const userId = String(req.body?.userId || "");
+  if (!BOT_SERVICE_URL || !BOT_SECRET) {
+    const out = approveUser(userId);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json({ ok: true });
+  }
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, secret: BOT_SECRET }),
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data.error || "Erro ao aprovar." });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/admin/reject", requireAuth, requireOwner, async (req, res) => {
+  const userId = String(req.body?.userId || "");
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.json({ ok: true });
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, secret: BOT_SECRET }),
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data.error || "Erro ao rejeitar." });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get("/api/admin/users", requireAuth, requireOwner, (req, res) => res.json({ users: listAllUsersSafe() }));
 app.post("/api/admin/revoke", requireAuth, requireOwner, async (req, res) => {
@@ -589,6 +836,105 @@ app.post("/api/admin/delete", requireAuth, requireOwner, async (req, res) => {
     if (!out.ok) return res.status(400).json({ error: out.error });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e.message) }); }
+});
+
+// Permissions — any authenticated user reads the cached permissions matrix
+app.get("/api/permissions", requireAuth, (req, res) => {
+  res.json({ permissions: _cachedPermissions });
+});
+
+// Admin — set user role (syncs to Worker + local cache)
+app.post("/api/admin/set-role", requireAuth, requireOwner, async (req, res) => {
+  const { userId, role } = req.body || {};
+  if (!userId || !role) return res.status(400).json({ error: "userId e role obrigatórios." });
+  const validRoles = ["membro", "pro", "elite", "master"];
+  if (!validRoles.includes(role)) return res.status(400).json({ error: "Cargo inválido." });
+  // Aplica imediatamente no cache local (funciona mesmo offline)
+  _cachedUserRoles[userId] = role;
+  setUserRole(userId, role);
+  const cached = _accountsCache.find(u => u.id === userId);
+  if (cached) { cached.role = role; _saveAccountsCache(_accountsCache); }
+  // Tenta sincronizar com o Worker (não bloqueia em caso de falha)
+  if (BOT_SERVICE_URL && BOT_SECRET) {
+    fetch(`${BOT_SERVICE_URL}/set-role`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, role, secret: BOT_SECRET }),
+    }).catch(() => {});
+  }
+  res.json({ ok: true });
+});
+
+// Admin — set user password
+app.post("/api/admin/set-password", requireAuth, requireOwner, async (req, res) => {
+  const { userId, newPassword } = req.body || {};
+  if (!userId || !newPassword) return res.status(400).json({ error: "userId e newPassword obrigatórios." });
+
+  // Se for usuário local (master admin) → muda localmente
+  const localUser = findUserById(userId);
+  if (localUser) {
+    const out = setUserPassword(userId, newPassword);
+    if (!out.ok) return res.status(400).json({ error: out.error });
+    return res.json({ ok: true });
+  }
+
+  // Usuário Worker
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.status(400).json({ error: "Worker não configurado." });
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/account/set-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, newPassword, secret: BOT_SECRET }),
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data.error || "Erro ao alterar senha." });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin — set per-user tab permissions (syncs to Worker + local cache)
+app.post("/api/admin/set-user-perms", requireAuth, requireOwner, async (req, res) => {
+  const { userId, tabs } = req.body || {};
+  if (!userId || !Array.isArray(tabs)) return res.status(400).json({ error: "userId e tabs[] obrigatórios." });
+  // Aplica imediatamente no cache local (funciona mesmo offline)
+  _cachedUserPerms[userId] = tabs;
+  const cached = _accountsCache.find(u => u.id === userId);
+  if (cached) { cached.allowedTabs = tabs; _saveAccountsCache(_accountsCache); }
+  // Tenta sincronizar com o Worker (não bloqueia em caso de falha)
+  if (BOT_SERVICE_URL && BOT_SECRET) {
+    fetch(`${BOT_SERVICE_URL}/user-perms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, tabs, secret: BOT_SECRET }),
+    }).catch(() => {});
+  }
+  res.json({ ok: true });
+});
+
+// Admin — get/set permissions matrix
+app.get("/api/admin/permissions", requireAuth, requireOwner, async (req, res) => {
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.json({ permissions: _cachedPermissions });
+  try {
+    const r = await fetch(`${BOT_SERVICE_URL}/permissions?secret=${encodeURIComponent(BOT_SECRET)}`);
+    const data = await r.json();
+    _cachedPermissions = data.permissions;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/admin/permissions", requireAuth, requireOwner, async (req, res) => {
+  const { permissions } = req.body || {};
+  if (!permissions) return res.status(400).json({ error: "permissions obrigatório." });
+  if (!BOT_SERVICE_URL || !BOT_SECRET) return res.status(400).json({ error: "Worker não configurado." });
+  try {
+    await fetch(`${BOT_SERVICE_URL}/permissions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissions, secret: BOT_SECRET }),
+    });
+    _cachedPermissions = permissions;
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Logs
@@ -659,7 +1005,7 @@ app.use('/api/orion', (req, res, next) => {
 });
 
 // Orion command — controlled by the app, polled by the injected bridge in Discord
-let _orionCommand = { command: 'idle' };
+let _orionCommand = { command: 'idle', questIds: [] };
 let _bridgeLastSeen = 0;
 const _orionState = { tasks: {}, questList: [], allDone: false, noQuests: false, error: null, updatedAt: 0, startedAt: 0 };
 
@@ -670,10 +1016,12 @@ app.get('/api/orion/command', (req, res) => {
 
 app.post('/api/orion/command', requireAuth, (req, res) => {
   const cmd = req.body?.command;
-  if (!['start', 'stop', 'idle'].includes(cmd)) return res.status(400).json({ error: 'Comando inválido.' });
-  _orionCommand = { command: cmd };
+  const questIds = Array.isArray(req.body?.questIds) ? req.body.questIds : [];
+  if (!['start', 'stop', 'idle', 'discover'].includes(cmd)) return res.status(400).json({ error: 'Comando inválido.' });
+  _orionCommand = { command: cmd, questIds };
   if (cmd === 'start') Object.assign(_orionState, { tasks: {}, questList: [], allDone: false, noQuests: false, error: null, startedAt: Date.now() });
-  if (cmd === 'idle' || cmd === 'stop') _orionCommand = { command: 'idle' };
+  if (cmd === 'discover') Object.assign(_orionState, { allDone: false, noQuests: false, error: null });
+  if (cmd === 'idle' || cmd === 'stop') _orionCommand = { command: 'idle', questIds: [] };
   res.json({ ok: true });
 });
 
@@ -698,6 +1046,8 @@ app.post('/api/orion/progress', (req, res) => {
   } else if (d.type === 'error') {
     _orionState.error = d.message || 'Erro desconhecido';
     _orionCommand = { command: 'idle' };
+  } else if (d.type === 'discover_done') {
+    _orionCommand = { command: 'idle', questIds: [] };
   }
   res.sendStatus(204);
 });

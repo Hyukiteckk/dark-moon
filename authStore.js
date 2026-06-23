@@ -34,15 +34,14 @@ export function registerUser(username, password) {
     return { ok: false, error: "Usuário Já Cadastrado." };
   }
 
-  const isFirst = data.users.length === 0;
   const salt = randomBytes(16).toString("hex");
   const user = {
     id: randomUUID(),
     username: u,
     passwordHash: hashPassword(p, salt),
     salt,
-    role: (isFirst || u === "manager") ? "owner" : "user",
-    approved: isFirst || u === "manager",
+    role: "user",
+    approved: false,
   };
   data.users.push(user);
   saveUsers(data);
@@ -58,7 +57,7 @@ export function loginUser(username, password) {
   if (hashPassword(p, user.salt) !== user.passwordHash) return { ok: false, error: "Senha incorreta." };
   if (!user.approved) return { ok: false, error: "Conta aguardando aprovação." };
   const isOwner = user.role === "owner" || user.username === "manager";
-  return { ok: true, user: { id: user.id, username: user.username, role: isOwner ? "owner" : "user", approved: true } };
+  return { ok: true, user: { id: user.id, username: user.username, role: isOwner ? "owner" : "user", approved: true, workerRole: user.workerRole || "membro" } };
 }
 
 export function findUserById(id) {
@@ -66,7 +65,29 @@ export function findUserById(id) {
   const user = data.users.find((x) => x.id === id);
   if (!user) return null;
   const isOwner = user.role === "owner" || user.username === "manager";
-  return { id: user.id, username: user.username, role: isOwner ? "owner" : "user", approved: Boolean(user.approved) };
+  return { id: user.id, username: user.username, role: isOwner ? "owner" : "user", approved: Boolean(user.approved), workerRole: user.workerRole || "membro" };
+}
+
+export function setUserPassword(userId, newPassword) {
+  const p = String(newPassword || "");
+  if (!p || p.length < 4) return { ok: false, error: "Senha precisa ter pelo menos 4 caracteres." };
+  const data = loadUsers();
+  const user = data.users.find((x) => x.id === userId);
+  if (!user) return { ok: false, error: "Usuário não encontrado." };
+  const salt = randomBytes(16).toString("hex");
+  user.passwordHash = hashPassword(p, salt);
+  user.salt = salt;
+  saveUsers(data);
+  return { ok: true };
+}
+
+export function setUserRole(userId, role) {
+  const data = loadUsers();
+  const user = data.users.find((x) => x.id === userId);
+  if (!user) return { ok: false, error: "Usuário não encontrado." };
+  user.workerRole = role;
+  saveUsers(data);
+  return { ok: true };
 }
 
 export function listPendingUsers() {
