@@ -35,6 +35,18 @@ const BOT_SERVICE_URL = process.env.BOT_SERVICE_URL || "";
 const BOT_SECRET      = process.env.BOT_SECRET      || "";
 const CLIENT_SECRET   = process.env.CLIENT_SECRET   || BOT_SECRET;
 const MASTER_ADMIN    = process.env.MASTER_ADMIN    || "";
+const APP_VERSION     = process.env.APP_VERSION     || "";
+const MIN_VERSION     = process.env.MIN_VERSION     || "";
+
+function semverLt(a, b) {
+  const pa = (a || "0").split(".").map(Number);
+  const pb = (b || "0").split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) < (pb[i] || 0)) return true;
+    if ((pa[i] || 0) > (pb[i] || 0)) return false;
+  }
+  return false;
+}
 let _cachedPermissions = null;
 let _cachedUserPerms   = {};
 let _cachedUserRoles   = {};
@@ -316,8 +328,20 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+app.get("/api/version", (_req, res) => {
+  res.json({ version: APP_VERSION, minVersion: MIN_VERSION });
+});
+
 app.post("/api/auth/login", async (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, password, appVersion } = req.body || {};
+
+  // Bloqueia versões antigas se MIN_VERSION estiver configurado
+  if (MIN_VERSION && appVersion && semverLt(appVersion, MIN_VERSION)) {
+    return res.status(426).json({
+      error: `Versão desatualizada (v${appVersion}). Feche e abra o app para atualizar automaticamente, ou baixe a versão mais recente.`,
+      updateRequired: true,
+    });
+  }
 
   // Sem Worker: fallback local (dev)
   if (!BOT_SERVICE_URL) {

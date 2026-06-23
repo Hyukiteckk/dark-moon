@@ -1,7 +1,7 @@
 {
   "name": "discord-manager",
   "productName": "Discord Manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "desktop/main.cjs",
   "scripts": {

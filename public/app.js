@@ -111,6 +111,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireTogglePw();
   wireGlobalToken();
 
+  // Carrega versão do app para enviar no login
+  try {
+    const vres = await fetch("/api/version");
+    const vdata = await vres.json();
+    window.__APP_VERSION__ = vdata.version || "0.0.0";
+  } catch { window.__APP_VERSION__ = "0.0.0"; }
+
   const me = await api("/api/auth/me");
   if (me?.user) {
     state.user = me.user;
@@ -150,9 +157,17 @@ async function doLogin() {
   const password = $("login-password").value;
   if (!username || !password) { errEl.textContent = "Preencha usuário e senha."; return; }
   setLoading(btn, true);
-  const res = await api("/api/auth/login", { username, password });
+  const res = await api("/api/auth/login", { username, password, appVersion: window.__APP_VERSION__ || "0.0.0" });
   setLoading(btn, false);
-  if (res.error) { errEl.textContent = res.error; return; }
+  if (res.error) {
+    if (res.updateRequired) {
+      errEl.innerHTML = `⚠️ ${res.error}`;
+      errEl.style.color = "#f04747";
+    } else {
+      errEl.textContent = res.error;
+    }
+    return;
+  }
   state.user = res.user;
   enterApp();
 }

@@ -109,6 +109,8 @@ app.whenReady().then(() => {
     MASTER_ADMIN: botConfig.MASTER_ADMIN || "",
     ADMIN_PASSWORD: botConfig.ADMIN_PASSWORD || "",
     CLIENT_SECRET: botConfig.CLIENT_SECRET || botConfig.BOT_SECRET || "",
+    APP_VERSION: app.getVersion(),
+    MIN_VERSION: botConfig.MIN_VERSION || "",
   };
 
   try {
