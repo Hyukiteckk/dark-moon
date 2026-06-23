@@ -2109,20 +2109,47 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] CanUserUse:', e); }
 
-            // ── 5b. canUseHighVideoResolutions — bloqueio do picker de resolução ──
+            // ── 5b. Stream quality capability patches (varre todos os nomes possíveis) ──
             try {
-                const hiResMod = Webpack.getModule(m => {
-                    try { return typeof m?.canUseHighVideoResolutions === 'function'; }
-                    catch { return false; }
-                });
-                if (hiResMod) {
-                    Patcher.instead(hiResMod, 'canUseHighVideoResolutions', () => true);
-                    if (typeof hiResMod.canStreamHighQuality === 'function')
-                        Patcher.instead(hiResMod, 'canStreamHighQuality', () => true);
-                    if (typeof hiResMod.canUseHighFrameRate === 'function')
-                        Patcher.instead(hiResMod, 'canUseHighFrameRate', () => true);
+                const streamFnNames = [
+                    'canUseHighVideoResolutions', 'canStreamHighQuality',
+                    'canUseHighFrameRate',         'canUseVideoQuality',
+                    'canStreamQuality',            'hasVideoQualityPerk',
+                    'canUseHighBitrate',           'canUsePremiumVideoQuality',
+                ];
+                // Varr toda a árvore de módulos com searchExports para achar qualquer cópia
+                for (const fnName of streamFnNames) {
+                    try {
+                        const mod = Webpack.getModule(m => {
+                            try { return typeof m?.[fnName] === 'function'; }
+                            catch { return false; }
+                        }, { searchExports: true });
+                        if (mod && typeof mod[fnName] === 'function')
+                            Patcher.instead(mod, fnName, () => true);
+                    } catch {}
                 }
-            } catch(e) { console.warn('[DM-Bypass] HighVideoRes:', e); }
+            } catch(e) { console.warn('[DM-Bypass] StreamQuality:', e); }
+
+            // ── 5c. Intercepta openModal para suprimir upsells de streaming ─────
+            try {
+                const ModalActions = Webpack.getByKeys("openModal", "closeModal", "hasModalOpen");
+                if (ModalActions) {
+                    Patcher.instead(ModalActions, "openModal", (_, args, orig) => {
+                        try {
+                            const renderFn = args[0];
+                            if (typeof renderFn === 'function') {
+                                const src = renderFn.toString();
+                                // Suprime modais de upsell de qualidade de vídeo/stream
+                                if ((src.includes('VIDEO') || src.includes('STREAM') || src.includes('video') || src.includes('stream'))
+                                    && (src.includes('premium') || src.includes('Premium') || src.includes('nitro') || src.includes('Nitro'))) {
+                                    return;
+                                }
+                            }
+                        } catch {}
+                        return orig(...args);
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] ModalIntercept:', e); }
 
             // ── 6. Client themes unlock (temas de cliente sem Nitro) ─────────────
             try {
