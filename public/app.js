@@ -2284,29 +2284,33 @@ function wirePerfil() {
     }
   }
 
-  // Parse Imgur URL → { id, ext }
-  function parseImgurUrl(raw) {
-    // strip fragment and query
+  // Parse banner URL → string to store inside B{...}
+  // Imgur short: returns just the ID (e.g. "j24M4Pj.gif")
+  // Any other URL: returns the full URL (e.g. "https://catbox.moe/u/abc.gif")
+  function parseBannerUrl(raw) {
     const clean = raw.split('#')[0].split('?')[0].trim();
-    // Direct i.imgur.com/ID.ext
+    // Direct i.imgur.com/ID.ext → short form
     let m = clean.match(/i\.imgur\.com\/([a-zA-Z0-9]+)(\.(?:gif|png|jpg|jpeg|webp))?/i);
-    if (m) return { id: m[1], ext: m[2] || '' };
-    // imgur.com/a/ID or imgur.com/gallery/slug-ID or imgur.com/ID
+    if (m) return { value: m[1] + (m[2] || ''), label: 'Imgur ID: ' + m[1] + (m[2] || '') };
+    // imgur.com/a/ID or imgur.com/gallery/slug-ID or imgur.com/ID → short form
     m = clean.match(/imgur\.com\/(?:a\/|gallery\/)?([^/\s]+)\/?$/);
     if (m) {
-      const seg = m[1];
+      const seg  = m[1];
       const extM = seg.match(/\.(gif|png|jpg|jpeg|webp)$/i);
       const ext  = extM ? '.' + extM[1] : '';
       const base = seg.replace(/\.(gif|png|jpg|jpeg|webp)$/i, '');
-      // Slug like "some-title-j24M4Pj" → last hyphen-part is the real ID
       const parts = base.split('-');
       const candidate = parts[parts.length - 1];
       const id = /^[a-zA-Z0-9]{5,12}$/.test(candidate) ? candidate : base;
-      return { id, ext };
+      return { value: id + ext, label: 'Imgur ID: ' + id + ext };
     }
-    // Plain ID or ID.ext
-    const plain = raw.trim().match(/^([a-zA-Z0-9]+)(\.(?:gif|png|jpg|jpeg|webp))?$/i);
-    if (plain) return { id: plain[1], ext: plain[2] || '' };
+    // Plain Imgur ID (no URL)
+    const plain = raw.trim().match(/^([a-zA-Z0-9]{5,12})(\.(?:gif|png|jpg|jpeg|webp))?$/i);
+    if (plain) return { value: plain[1] + (plain[2] || ''), label: 'Imgur ID: ' + plain[1] + (plain[2] || '') };
+    // Any other full URL (catbox, giphy, tenor, etc.) → store full URL
+    if (/^https?:\/\/.+\.(gif|png|jpg|jpeg|webp)/i.test(clean)) {
+      return { value: clean, label: 'URL: ' + clean };
+    }
     return null;
   }
 
@@ -2314,20 +2318,18 @@ function wirePerfil() {
   $("btn-perfil-banner").addEventListener("click", () => {
     const raw = $("perfil-banner-url").value.trim();
     if (!raw) return;
-    const parsed = parseImgurUrl(raw);
+    const parsed = parseBannerUrl(raw);
     if (!parsed) {
-      alert('Link do Imgur inválido.\n\nUse um link direto: https://i.imgur.com/XXXXXXX.gif');
+      alert('Link inválido.\n\nUse um link direto terminando em .gif, .png ou .jpg.\nExemplos:\n• https://i.imgur.com/AbcDef.gif\n• https://files.catbox.moe/abc123.gif');
       return;
     }
-    const { id, ext } = parsed;
-    const encoded = ' ' + encode3y3(`B{${id}${ext}}`);
+    const encoded = ' ' + encode3y3(`B{${parsed.value}}`);
     $("perfil-banner-code").value = encoded;
     $("perfil-banner-result").classList.remove("hidden");
-    // feedback visual — mostra o ID extraído
     const el = $("perfil-banner-url");
     if (el) {
       el.style.borderColor = '#3ba55c';
-      el.title = `ID extraído: ${id}${ext} — código pronto para copiar!`;
+      el.title = parsed.label + ' — código pronto para copiar!';
       setTimeout(() => { el.style.borderColor = ''; el.title = ''; }, 3000);
     }
   });

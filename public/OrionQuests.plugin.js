@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.1
+ * @version 1.2.2
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -1983,14 +1983,22 @@ module.exports = class OrionQuests {
                     try { ret.profileEffect = { skuId: fm[1], expiresAt: null }; } catch {}
                 }
 
-                // Fake banner: B{imgurId[.ext]}
+                // Fake banner: B{imgurId[.ext]} or B{https://any-host/img.gif}
                 const bm = revealed.match(/B\{([^}]+)\}/);
                 if (bm && userId) {
-                    let id = bm[1];
-                    if (!/\.(gif|png|jpg|jpeg|webp)$/i.test(id)) id += '.gif';
+                    let val = bm[1];
+                    let bannerUrl;
+                    if (/^https?:\/\//i.test(val)) {
+                        // Full URL (catbox, giphy, tenor, etc.)
+                        bannerUrl = val;
+                    } else {
+                        // Imgur short ID
+                        if (!/\.(gif|png|jpg|jpeg|webp)$/i.test(val)) val += '.gif';
+                        bannerUrl = `https://i.imgur.com/${val}`;
+                    }
                     try {
                         ret.premiumType = 2;
-                        self._fakeProfileCache.set(userId, `https://i.imgur.com/${id}`);
+                        self._fakeProfileCache.set(userId, bannerUrl);
                     } catch {}
                 }
             });
