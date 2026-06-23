@@ -7,6 +7,15 @@
       "salt": "407f357cf3fa3e877567c0fe0e5a912a",
       "role": "owner",
       "approved": true
+    },
+    {
+      "id": "3da7adf2-4d69-4df5-a505-18f5009003c0",
+      "username": "TESTE123",
+      "passwordHash": "306aea391ded7d715d4a2e1f7d2188f6c26bff9c474304d37eb7b6c946a3558183bd58ab934ccdea12c2001ff17b544e73f0ac3046d0c00ad038bdc595a048e5",
+      "salt": "1b7f97d42d98e5d9e48c2bab0c72b660",
+      "role": "user",
+      "approved": true,
+      "workerRole": "membro"
     }
   ]
 }
