@@ -2136,6 +2136,19 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Client themes (isPreview):', e); }
             try {
+                // O componente de tema checa user.premiumType diretamente.
+                // Patchamos getCurrentUser para reportar Nitro (2) na UI.
+                const UserStore = Webpack.getStore("UserStore");
+                if (UserStore) {
+                    Patcher.after(UserStore, "getCurrentUser", (_, __, ret) => {
+                        if (!ret || ret.premiumType >= 2) return;
+                        Object.defineProperty(ret, 'premiumType', {
+                            value: 2, configurable: true, enumerable: true, writable: true
+                        });
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] getCurrentUser premiumType:', e); }
+            try {
                 // canUseClientThemes = true: remove o bloqueio de premium na aba Temas
                 const themeCapMod = Webpack.getModule(m => {
                     try { return typeof m?.canUseClientThemes === 'function'; }
