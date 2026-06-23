@@ -2284,23 +2284,52 @@ function wirePerfil() {
     }
   }
 
+  // Parse Imgur URL → { id, ext }
+  function parseImgurUrl(raw) {
+    // strip fragment and query
+    const clean = raw.split('#')[0].split('?')[0].trim();
+    // Direct i.imgur.com/ID.ext
+    let m = clean.match(/i\.imgur\.com\/([a-zA-Z0-9]+)(\.(?:gif|png|jpg|jpeg|webp))?/i);
+    if (m) return { id: m[1], ext: m[2] || '' };
+    // imgur.com/a/ID or imgur.com/gallery/slug-ID or imgur.com/ID
+    m = clean.match(/imgur\.com\/(?:a\/|gallery\/)?([^/\s]+)\/?$/);
+    if (m) {
+      const seg = m[1];
+      const extM = seg.match(/\.(gif|png|jpg|jpeg|webp)$/i);
+      const ext  = extM ? '.' + extM[1] : '';
+      const base = seg.replace(/\.(gif|png|jpg|jpeg|webp)$/i, '');
+      // Slug like "some-title-j24M4Pj" → last hyphen-part is the real ID
+      const parts = base.split('-');
+      const candidate = parts[parts.length - 1];
+      const id = /^[a-zA-Z0-9]{5,12}$/.test(candidate) ? candidate : base;
+      return { id, ext };
+    }
+    // Plain ID or ID.ext
+    const plain = raw.trim().match(/^([a-zA-Z0-9]+)(\.(?:gif|png|jpg|jpeg|webp))?$/i);
+    if (plain) return { id: plain[1], ext: plain[2] || '' };
+    return null;
+  }
+
   // Banner generator
   $("btn-perfil-banner").addEventListener("click", () => {
     const raw = $("perfil-banner-url").value.trim();
     if (!raw) return;
-    let imgId = raw;
-    const urlMatch = raw.match(/imgur\.com\/(?:a\/)?([a-zA-Z0-9]+)(?:\.[a-zA-Z]+)?(?:\?.*)?$/);
-    if (urlMatch) imgId = urlMatch[1];
-    else {
-      const plainMatch = raw.match(/^([a-zA-Z0-9]+)(\.[a-zA-Z]+)?$/);
-      if (plainMatch) imgId = plainMatch[1] + (plainMatch[2] || '');
+    const parsed = parseImgurUrl(raw);
+    if (!parsed) {
+      alert('Link do Imgur inválido.\n\nUse um link direto: https://i.imgur.com/XXXXXXX.gif');
+      return;
     }
-    const extMatch = raw.match(/\.(gif|png|jpg|jpeg|webp)(?:\?.*)?$/i);
-    const ext = extMatch ? '.' + extMatch[1] : '';
-    const idBase = imgId.replace(/\.[a-zA-Z]+$/, '');
-    const encoded = ' ' + encode3y3(`B{${idBase}${ext}}`);
+    const { id, ext } = parsed;
+    const encoded = ' ' + encode3y3(`B{${id}${ext}}`);
     $("perfil-banner-code").value = encoded;
     $("perfil-banner-result").classList.remove("hidden");
+    // feedback visual — mostra o ID extraído
+    const el = $("perfil-banner-url");
+    if (el) {
+      el.style.borderColor = '#3ba55c';
+      el.title = `ID extraído: ${id}${ext} — código pronto para copiar!`;
+      setTimeout(() => { el.style.borderColor = ''; el.title = ''; }, 3000);
+    }
   });
 
   // Color picker sync
@@ -2336,6 +2365,14 @@ function wirePerfil() {
     const encoded = ' ' + encode3y3(`[${c1},${c2}]`);
     $("perfil-colors-code").value = encoded;
     $("perfil-colors-result").classList.remove("hidden");
+    // feedback — o código é invisível, avisamos que foi gerado
+    const btn2 = $("btn-perfil-colors");
+    if (btn2) {
+      const orig2 = btn2.textContent;
+      btn2.textContent = '✓ Código copiável!';
+      btn2.style.background = '#3ba55c';
+      setTimeout(() => { btn2.textContent = orig2; btn2.style.background = ''; }, 2500);
+    }
   });
 
   // Copy buttons

@@ -1111,14 +1111,15 @@
           <div class="card-header">
             <h3>Banner do Perfil</h3>
           </div>
-          <p class="card-hint" style="margin-bottom:14px">Cole a URL de uma imagem do Imgur (GIF, PNG, JPG) — outros usuários com o plugin verão como seu banner.</p>
+          <p class="card-hint" style="margin-bottom:8px">Cole o link direto de uma imagem do Imgur — outros usuários com o plugin verão como seu banner.</p>
+          <p class="card-hint" style="margin-bottom:14px;opacity:.7;font-size:12px">⚠️ Use link direto: <b>i.imgur.com/ID.gif</b> — links de galeria, album ou outros sites <b>não funcionam</b>.<br>No Imgur: clique com botão direito na imagem → "Copiar endereço da imagem".</p>
           <div class="field-group" style="margin-bottom:12px">
             <label>URL do Imgur</label>
             <input id="perfil-banner-url" type="text" placeholder="https://i.imgur.com/AbcDef.gif" autocomplete="off" />
           </div>
           <button id="btn-perfil-banner" class="btn-primary btn-sm">Gerar Código</button>
           <div id="perfil-banner-result" class="perfil-result hidden">
-            <label class="field-label">Código 3y3 — cole na sua bio do Discord:</label>
+            <label class="field-label">Código 3y3 — cole na sua bio do Discord: <span style="opacity:.6;font-size:11px">(parece vazio, mas os chars são invisíveis — use o botão copiar)</span></label>
             <div class="perfil-code-row">
               <textarea id="perfil-banner-code" class="perfil-code" readonly rows="2"></textarea>
               <button class="btn-copy-code" data-target="perfil-banner-code" title="Copiar">
