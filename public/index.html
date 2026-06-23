@@ -216,6 +216,12 @@
           </svg>
           Histórico
         </button>
+        <button class="nav-btn" data-tab="perfil">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+          </svg>
+          Perfil
+        </button>
       </nav>
 
       <div id="nav-admin-wrap" class="hidden">
@@ -1090,6 +1096,88 @@
             </div>
           </div>
           <div id="quest-history-list" class="quest-history-list empty-hint">Nenhuma missão registrada.</div>
+        </div>
+      </section>
+
+      <!-- TAB: PERFIL -->
+      <section id="tab-perfil" class="tab-section">
+        <div class="page-header">
+          <h2>Personalização de Perfil</h2>
+          <p class="page-sub">Gere códigos 3y3 para customizar seu perfil no Discord</p>
+        </div>
+
+        <!-- Banner -->
+        <div class="section-card">
+          <div class="card-header">
+            <h3>Banner do Perfil</h3>
+          </div>
+          <p class="card-hint" style="margin-bottom:14px">Cole a URL de uma imagem do Imgur (GIF, PNG, JPG) — outros usuários com o plugin verão como seu banner.</p>
+          <div class="field-group" style="margin-bottom:12px">
+            <label>URL do Imgur</label>
+            <input id="perfil-banner-url" type="text" placeholder="https://i.imgur.com/AbcDef.gif" autocomplete="off" />
+          </div>
+          <button id="btn-perfil-banner" class="btn-primary btn-sm">Gerar Código</button>
+          <div id="perfil-banner-result" class="perfil-result hidden">
+            <label class="field-label">Código 3y3 — cole na sua bio do Discord:</label>
+            <div class="perfil-code-row">
+              <textarea id="perfil-banner-code" class="perfil-code" readonly rows="2"></textarea>
+              <button class="btn-copy-code" data-target="perfil-banner-code" title="Copiar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cores -->
+        <div class="section-card">
+          <div class="card-header">
+            <h3>Cores do Perfil</h3>
+          </div>
+          <p class="card-hint" style="margin-bottom:14px">Define um gradiente personalizado no fundo do seu perfil (visível para quem tem o plugin).</p>
+          <div class="perfil-colors-row">
+            <div class="field-group">
+              <label>Cor Primária</label>
+              <div class="color-input-wrap">
+                <input id="perfil-color1" type="color" value="#a855f7" class="color-picker" />
+                <input id="perfil-color1-hex" type="text" value="#a855f7" class="color-hex" maxlength="7" placeholder="#rrggbb" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label>Cor de Destaque</label>
+              <div class="color-input-wrap">
+                <input id="perfil-color2" type="color" value="#5865f2" class="color-picker" />
+                <input id="perfil-color2-hex" type="text" value="#5865f2" class="color-hex" maxlength="7" placeholder="#rrggbb" />
+              </div>
+            </div>
+          </div>
+          <div id="perfil-color-preview" class="perfil-color-preview"></div>
+          <button id="btn-perfil-colors" class="btn-primary btn-sm" style="margin-top:12px">Gerar Código</button>
+          <div id="perfil-colors-result" class="perfil-result hidden">
+            <label class="field-label">Código 3y3 — cole na sua bio do Discord:</label>
+            <div class="perfil-code-row">
+              <textarea id="perfil-colors-code" class="perfil-code" readonly rows="2"></textarea>
+              <button class="btn-copy-code" data-target="perfil-colors-code" title="Copiar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Como usar -->
+        <div class="section-card">
+          <div class="card-header">
+            <h3>Como usar</h3>
+          </div>
+          <ol class="perfil-steps">
+            <li>Gere o código acima e copie-o</li>
+            <li>Abra o Discord → clique no seu avatar → <b>Editar Perfil</b></li>
+            <li>Cole o código invisível no campo <b>Sobre mim (Bio)</b></li>
+            <li>Salve — o código fica invisível, isso é normal</li>
+            <li>Outros usuários com o plugin <b>OrionQuests</b> instalado verão seu banner/cores</li>
+          </ol>
+          <div class="perfil-note">
+            Você pode combinar múltiplos códigos (banner + cores) colando ambos na mesma bio. Cada código ocupa espaço invisível.
+          </div>
         </div>
       </section>
 

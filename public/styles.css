@@ -1745,3 +1745,90 @@ button { cursor: pointer; font-family: inherit; }
 .conv-msg-time { font-size: .68rem; color: var(--text-muted); }
 .conv-msg-content { font-size: .85rem; color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .conv-attachment { display: block; }
+
+/* ─── PERFIL / 3y3 GENERATOR ─── */
+.perfil-result { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.perfil-code-row { display: flex; gap: 8px; align-items: flex-start; }
+.perfil-code {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: .8rem;
+  padding: 8px 10px;
+  resize: none;
+  line-height: 1.4;
+  min-height: 48px;
+}
+.btn-copy-code {
+  background: rgba(168,85,247,.12);
+  border: 1px solid rgba(168,85,247,.3);
+  border-radius: 6px;
+  color: var(--purple-bright);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: background .15s, border-color .15s;
+  flex-shrink: 0;
+  height: 36px;
+}
+.btn-copy-code:hover { background: rgba(168,85,247,.22); border-color: rgba(168,85,247,.5); }
+.perfil-colors-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.color-input-wrap { display: flex; align-items: center; gap: 8px; }
+.color-picker {
+  width: 40px; height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  background: var(--bg2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.color-hex {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: monospace;
+  font-size: .85rem;
+  padding: 6px 10px;
+}
+.color-hex:focus { outline: none; border-color: var(--purple-bright); }
+.perfil-color-preview {
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #a855f7, #5865f2);
+  border: 1px solid var(--border);
+  transition: background .3s;
+}
+.perfil-steps {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.perfil-steps li {
+  color: var(--text-dim);
+  font-size: .88rem;
+  line-height: 1.5;
+}
+.perfil-note {
+  font-size: .8rem;
+  color: var(--text-muted);
+  background: rgba(168,85,247,.06);
+  border: 1px solid rgba(168,85,247,.18);
+  border-radius: 6px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}

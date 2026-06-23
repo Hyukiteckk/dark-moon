@@ -1,16 +1,17 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.1.0
+ * @version 1.2.0
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
-    constructor() { this._pollTimer = null; this._flushTimer = null; this._bdPatcher = null; }
+    constructor() { this._pollTimer = null; this._flushTimer = null; this._bdPatcher = null; this._fakeProfileCache = null; }
 
     start() {
         window.orionLock = false;
         window._orionProgressQueue = [];
         this._applyNitroBypasses();
+        this._applyProfileDecoding();
 
         this._pollTimer = setInterval(async () => {
             try {
@@ -1930,6 +1931,84 @@ module.exports = class OrionQuests {
         try { document.getElementById('orion-ui')?.remove(); } catch {}
         try { document.getElementById('orion-styles')?.remove(); } catch {}
         if (this._bdPatcher) { try { this._bdPatcher.unpatchAll(); } catch {} this._bdPatcher = null; }
+        if (this._fakeProfileCache) { this._fakeProfileCache.clear(); this._fakeProfileCache = null; }
+    }
+
+    _3y3Reveal(text) {
+        if (!text || !text.includes('\uDB40')) return null;
+        return [...text].map(ch => {
+            const cp = ch.codePointAt(0);
+            return (cp > 0xe0000 && cp < 0xe007f) ? String.fromCodePoint(cp - 0xe0000) : ch;
+        }).join('');
+    }
+
+    _applyProfileDecoding() {
+        try {
+            const { Patcher, Webpack } = new BdApi("Dark-moonQuest");
+            const UserProfileStore = Webpack.getStore("UserProfileStore");
+            const PresenceStore    = Webpack.getStore("PresenceStore");
+
+            if (!UserProfileStore) return;
+
+            const self = this;
+            self._fakeProfileCache = new Map();
+
+            // Decode 3y3 from bio/status → apply banner, colors, effect
+            Patcher.after(UserProfileStore, "getUserProfile", (_, [userId], ret) => {
+                if (!ret) return;
+                const bio = ret.bio || '';
+                let revealed = self._3y3Reveal(bio);
+
+                if (!revealed && PresenceStore) {
+                    try {
+                        const acts = PresenceStore.getActivities(userId) || [];
+                        const cs   = acts.find(a => a.name === 'Custom Status' || a.id === 'custom');
+                        if (cs?.state) revealed = self._3y3Reveal(cs.state);
+                    } catch {}
+                }
+                if (!revealed) return;
+
+                // Profile colors: [#rrggbb,#rrggbb]
+                const cm = revealed.match(/\[#([0-9a-fA-F]{6}),#([0-9a-fA-F]{6})\]/);
+                if (cm) {
+                    try {
+                        ret.themeColors = [parseInt(cm[1], 16), parseInt(cm[2], 16)];
+                        ret.premiumType = 2;
+                    } catch {}
+                }
+
+                // Profile effect: fx{skuId}
+                const fm = revealed.match(/fx(\d+)/);
+                if (fm) {
+                    try { ret.profileEffect = { skuId: fm[1], expiresAt: null }; } catch {}
+                }
+
+                // Fake banner: B{imgurId[.ext]}
+                const bm = revealed.match(/B\{([^}]+)\}/);
+                if (bm && userId) {
+                    let id = bm[1];
+                    if (!/\.(gif|png|jpg|jpeg|webp)$/i.test(id)) id += '.gif';
+                    try {
+                        ret.premiumType = 2;
+                        self._fakeProfileCache.set(userId, `https://i.imgur.com/${id}`);
+                    } catch {}
+                }
+            });
+
+            // Inject Imgur URL into banner rendering
+            const AvatarMod = Webpack.getByKeys("getUserBannerURL");
+            if (AvatarMod) {
+                Patcher.instead(AvatarMod, "getUserBannerURL", (_, args, orig) => {
+                    const uid = args[0]?.id;
+                    if (uid && self._fakeProfileCache?.has(uid)) return self._fakeProfileCache.get(uid);
+                    return orig(...args);
+                });
+            }
+
+            console.log('[Dark-moonQuest] Profile decoding patches aplicados.');
+        } catch(e) {
+            console.warn('[DM] Profile decoding error:', e);
+        }
     }
 
     _applyNitroBypasses() {
@@ -2024,7 +2103,34 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] CanUserUse:', e); }
 
-            console.log('[Dark-moonQuest] Nitro bypasses aplicados: emoji cross-server, upload 100MB, stream 1080p.');
+            // ── 6. Client themes unlock (temas de cliente sem Nitro) ─────────────
+            try {
+                const clientThemesMod = Webpack.getModule(m => {
+                    try { return typeof m?.isPreview === 'boolean' && typeof m?.updateClientTheme === 'function'; }
+                    catch { return false; }
+                });
+                if (clientThemesMod) {
+                    Object.defineProperty(clientThemesMod, 'isPreview', { get: () => false, configurable: true });
+                }
+            } catch(e) { console.warn('[DM-Bypass] Client themes:', e); }
+
+            // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
+            try {
+                const nitroMod = Webpack.getModule(m => {
+                    try { return typeof m?.openNitroModal === 'function'; }
+                    catch { return false; }
+                });
+                if (nitroMod) Patcher.instead(nitroMod, 'openNitroModal', () => {});
+            } catch(e) { console.warn('[DM-Bypass] Nitro upsell:', e); }
+            try {
+                const premiumMod = Webpack.getModule(m => {
+                    try { return typeof m?.openPremiumModal === 'function' && typeof m?.openPremiumGiftingModal === 'function'; }
+                    catch { return false; }
+                });
+                if (premiumMod) Patcher.instead(premiumMod, 'openPremiumModal', () => {});
+            } catch(e) { console.warn('[DM-Bypass] Premium modal:', e); }
+
+            console.log('[Dark-moonQuest] Nitro bypasses aplicados: emoji cross-server, upload 100MB, stream 1080p, temas de cliente.');
         } catch(e) {
             console.error('[Dark-moonQuest] Falha ao aplicar bypasses:', e);
         }
@@ -2033,13 +2139,20 @@ module.exports = class OrionQuests {
     getSettingsPanel() {
         const div = document.createElement('div');
         div.style.cssText = 'padding:16px;color:#fff;font-family:sans-serif;';
-        div.innerHTML = '<b>Dark-moonQuest v1.1.0</b><br><br>' +
+        div.innerHTML = '<b>Dark-moonQuest v1.2.0</b><br><br>' +
             'O plugin aguarda o comando do Discord Manager (http://127.0.0.1:4100).<br><br>' +
             '<span style="color:#faa61a">Modo: controlado pelo servidor</span> — use o botão Start/Stop no app para iniciar as missões.<br><br>' +
             '<b style="color:#3BA55C">Nitro Bypasses ativos:</b><br>' +
             '✅ Emoji cross-server (sem Nitro)<br>' +
             '✅ Upload até 100MB<br>' +
-            '✅ Stream 1080p/60fps';
+            '✅ Stream 1080p/60fps<br>' +
+            '✅ Temas de cliente desbloqueados<br>' +
+            '✅ Upsell "Obter Nitro" suprimido<br><br>' +
+            '<b style="color:#a855f7">Profile 3y3 (ver perfis personalizados):</b><br>' +
+            '✅ Banners falsos via Imgur<br>' +
+            '✅ Cores de perfil<br>' +
+            '✅ Efeitos de perfil<br><br>' +
+            '<span style="color:#949ba4;font-size:.85em">Use o app Dark Moon → aba Perfil para gerar seus próprios códigos 3y3.</span>';
         return div;
     }
 };

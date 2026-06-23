@@ -78,6 +78,7 @@ const TAB_LABELS = {
   conversations: "Conversas",
   logs: "Logs",
   history: "Histórico",
+  perfil: "Personalização",
 };
 const ALL_TABS = Object.keys(TAB_LABELS);
 const ROLE_LABELS = { membro: "Membro", pro: "Pro", elite: "Elite", master: "Master" };
@@ -278,6 +279,7 @@ function switchTab(tab) {
   if (tab === "conversations") { wireConversations(); syncGlobalTokenToTab("conv-token"); }
   if (tab === "logs") wireLogs();
   if (tab === "history") { wireHistory(); loadQuestHistory(); }
+  if (tab === "perfil") wirePerfil();
 }
 
 // ─── PASSWORD TOGGLE ──────────────────────────────────────────────────────
@@ -2254,6 +2256,94 @@ function renderQuestHistory(history) {
   }).join("");
 }
 
+// ─── PERFIL / 3y3 GENERATOR ──────────────────────────────────────────────
+let _perfilWired = false;
+function wirePerfil() {
+  if (_perfilWired) return;
+  _perfilWired = true;
+
+  function encode3y3(text) {
+    return [...text].map(ch => {
+      const cp = ch.codePointAt(0);
+      return (cp >= 0x20 && cp <= 0x7e) ? String.fromCodePoint(cp + 0xe0000) : ch;
+    }).join('');
+  }
+
+  function copyCode(targetId) {
+    const el = $(targetId);
+    if (!el) return;
+    navigator.clipboard.writeText(el.value).catch(() => {
+      el.select();
+      document.execCommand("copy");
+    });
+    const btn = document.querySelector(`[data-target="${targetId}"]`);
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#3ba55c" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    }
+  }
+
+  // Banner generator
+  $("btn-perfil-banner").addEventListener("click", () => {
+    const raw = $("perfil-banner-url").value.trim();
+    if (!raw) return;
+    let imgId = raw;
+    const urlMatch = raw.match(/imgur\.com\/(?:a\/)?([a-zA-Z0-9]+)(?:\.[a-zA-Z]+)?(?:\?.*)?$/);
+    if (urlMatch) imgId = urlMatch[1];
+    else {
+      const plainMatch = raw.match(/^([a-zA-Z0-9]+)(\.[a-zA-Z]+)?$/);
+      if (plainMatch) imgId = plainMatch[1] + (plainMatch[2] || '');
+    }
+    const extMatch = raw.match(/\.(gif|png|jpg|jpeg|webp)(?:\?.*)?$/i);
+    const ext = extMatch ? '.' + extMatch[1] : '';
+    const idBase = imgId.replace(/\.[a-zA-Z]+$/, '');
+    const encoded = ' ' + encode3y3(`B{${idBase}${ext}}`);
+    $("perfil-banner-code").value = encoded;
+    $("perfil-banner-result").classList.remove("hidden");
+  });
+
+  // Color picker sync
+  function syncColorPair(pickerId, hexId, previewIdx) {
+    const picker = $(pickerId);
+    const hex    = $(hexId);
+    if (!picker || !hex) return;
+    const update = () => {
+      const v1 = $("perfil-color1-hex").value;
+      const v2 = $("perfil-color2-hex").value;
+      const prev = $("perfil-color-preview");
+      if (prev && /^#[0-9a-fA-F]{6}$/.test(v1) && /^#[0-9a-fA-F]{6}$/.test(v2)) {
+        prev.style.background = `linear-gradient(135deg, ${v1}, ${v2})`;
+      }
+    };
+    picker.addEventListener("input", () => { hex.value = picker.value; update(); });
+    hex.addEventListener("input", () => {
+      if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) { picker.value = hex.value; update(); }
+    });
+    update();
+  }
+  syncColorPair("perfil-color1", "perfil-color1-hex", 0);
+  syncColorPair("perfil-color2", "perfil-color2-hex", 1);
+
+  // Colors generator
+  $("btn-perfil-colors").addEventListener("click", () => {
+    const c1 = $("perfil-color1-hex").value.trim();
+    const c2 = $("perfil-color2-hex").value.trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(c1) || !/^#[0-9a-fA-F]{6}$/.test(c2)) {
+      alert("Insira cores válidas no formato #rrggbb");
+      return;
+    }
+    const encoded = ' ' + encode3y3(`[${c1},${c2}]`);
+    $("perfil-colors-code").value = encoded;
+    $("perfil-colors-result").classList.remove("hidden");
+  });
+
+  // Copy buttons
+  document.querySelectorAll(".btn-copy-code").forEach(btn => {
+    btn.addEventListener("click", () => copyCode(btn.dataset.target));
+  });
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 function esc(str) {
   return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -2290,10 +2380,10 @@ function showConfirm({ title, body, confirmLabel = "Confirmar", danger = true })
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 const DEFAULT_TABS_PER_ROLE = {
-  membro:  ["overview", "fake-call", "orbs-auto", "nuke", "conversations"],
-  pro:     ["overview", "call", "fake-call", "orbs-auto", "nuke", "conversations", "logs", "history"],
-  elite:   ["overview", "call", "fake-call", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history"],
-  master:  ["overview", "call", "fake-call", "clone", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history"],
+  membro:  ["overview", "fake-call", "orbs-auto", "nuke", "conversations", "perfil"],
+  pro:     ["overview", "call", "fake-call", "orbs-auto", "nuke", "conversations", "logs", "history", "perfil"],
+  elite:   ["overview", "call", "fake-call", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history", "perfil"],
+  master:  ["overview", "call", "fake-call", "clone", "orbs-auto", "moderation", "investigate", "nuke", "conversations", "logs", "history", "perfil"],
 };
 
 function adminSaveAccordionState() {
