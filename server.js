@@ -38,6 +38,12 @@ const MASTER_ADMIN    = process.env.MASTER_ADMIN    || "";
 const APP_VERSION     = process.env.APP_VERSION     || "";
 const MIN_VERSION     = process.env.MIN_VERSION     || "";
 
+// MIN_VERSION pode ser alterada em runtime pelo admin (persiste em data/app_settings.json)
+const _settingsPath = join(DATA_ROOT, "app_settings.json");
+function _loadSettings() { try { return JSON.parse(readFileSync(_settingsPath,"utf8")); } catch { return {}; } }
+function _saveSettings(s) { try { writeFileSync(_settingsPath, JSON.stringify(s, null, 2)); } catch {} }
+let _runtimeMinVersion = _loadSettings().minVersion || MIN_VERSION;
+
 function semverLt(a, b) {
   const pa = (a || "0").split(".").map(Number);
   const pb = (b || "0").split(".").map(Number);
@@ -329,14 +335,39 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.get("/api/version", (_req, res) => {
-  res.json({ version: APP_VERSION, minVersion: MIN_VERSION });
+  res.json({ version: APP_VERSION, minVersion: _runtimeMinVersion });
+});
+
+app.get("/api/plugin-version", (_req, res) => {
+  try {
+    const src = readFileSync(join(__dir, "public", "OrionQuests.plugin.js"), "utf8");
+    const m = src.match(/@version\s+(\S+)/);
+    res.json({ version: m?.[1] || "unknown" });
+  } catch { res.json({ version: "unknown" }); }
+});
+
+app.get("/api/admin/min-version", (req, res) => {
+  if (!isMasterAdmin(req.user)) return res.status(403).json({ error: "Proibido" });
+  res.json({ minVersion: _runtimeMinVersion });
+});
+
+app.post("/api/admin/min-version", (req, res) => {
+  if (!isMasterAdmin(req.user)) return res.status(403).json({ error: "Proibido" });
+  const { version } = req.body || {};
+  if (!version || !/^\d+\.\d+\.\d+$/.test(version))
+    return res.status(400).json({ error: "Formato inválido. Use x.y.z (ex: 1.1.0)" });
+  _runtimeMinVersion = version;
+  const settings = _loadSettings();
+  settings.minVersion = version;
+  _saveSettings(settings);
+  res.json({ ok: true, minVersion: _runtimeMinVersion });
 });
 
 app.post("/api/auth/login", async (req, res) => {
   const { username, password, appVersion } = req.body || {};
 
   // Bloqueia versões antigas se MIN_VERSION estiver configurado
-  if (MIN_VERSION && appVersion && semverLt(appVersion, MIN_VERSION)) {
+  if (_runtimeMinVersion && appVersion && semverLt(appVersion, _runtimeMinVersion)) {
     return res.status(426).json({
       error: `Versão desatualizada (v${appVersion}). Feche e abra o app para atualizar automaticamente, ou baixe a versão mais recente.`,
       updateRequired: true,

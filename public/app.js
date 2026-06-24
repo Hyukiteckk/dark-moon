@@ -215,6 +215,28 @@ function enterApp() {
   switchTab("overview");
   refreshStatus();
   startPermissionsPoller();
+  if (state.user?.isMasterAdmin) checkPluginVersionNotification();
+}
+
+async function checkPluginVersionNotification() {
+  try {
+    const d = await api("/api/plugin-version");
+    if (!d?.version || d.version === "unknown") return;
+    const stored = localStorage.getItem("dm_plugin_version_seen");
+    if (stored && stored !== d.version) {
+      showToast(`Plugin atualizado para v${d.version} — baixe na aba Admin!`, 6000);
+    }
+    localStorage.setItem("dm_plugin_version_seen", d.version);
+  } catch {}
+}
+
+function showToast(msg, duration = 3500) {
+  const t = document.createElement("div");
+  t.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:9999;background:#5865F2;color:#fff;padding:12px 18px;border-radius:10px;font-size:.84rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:320px;line-height:1.4;cursor:pointer;transition:opacity .4s";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  t.addEventListener("click", () => t.remove());
+  setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 400); }, duration);
 }
 
 let _permsPollerTimer = null;
@@ -290,7 +312,7 @@ function switchTab(tab) {
   if (tab === "moderation") { wireMod(); syncGlobalTokenToTab("mod-token"); }
   if (tab === "investigate") wireInvestigate();
   if (tab === "nuke") { wireNuke(); syncGlobalTokenToTab("nuke-token"); }
-  if (tab === "admin") { loadAdminPanel(true); startAdminRefresh(); }
+  if (tab === "admin") { loadAdminPanel(true); startAdminRefresh(); wireAdminSettings(); }
   if (tab === "conversations") { wireConversations(); syncGlobalTokenToTab("conv-token"); }
   if (tab === "logs") wireLogs();
   if (tab === "history") { wireHistory(); loadQuestHistory(); }
@@ -2272,6 +2294,47 @@ function renderQuestHistory(history) {
 }
 
 // ─── PERFIL / 3y3 GENERATOR ──────────────────────────────────────────────
+let _adminSettingsWired = false;
+function wireAdminSettings() {
+  if (_adminSettingsWired) return;
+  _adminSettingsWired = true;
+
+  // Load current MIN_VERSION
+  api("/api/admin/min-version").then(d => {
+    const el = $("admin-min-version-current");
+    if (el && d.minVersion) el.textContent = "Atual: " + d.minVersion;
+  }).catch(() => {});
+
+  // Load plugin version
+  api("/api/plugin-version").then(d => {
+    const el = $("admin-plugin-version");
+    if (el && d.version) el.textContent = "v" + d.version;
+  }).catch(() => {});
+
+  // Save MIN_VERSION button
+  const btnSave = $("btn-admin-save-min-version");
+  if (btnSave) {
+    btnSave.addEventListener("click", async () => {
+      const input = $("admin-min-version-input");
+      const resultEl = $("admin-min-version-result");
+      const version = input?.value.trim();
+      if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+        if (resultEl) { resultEl.textContent = "Formato inválido. Use x.y.z (ex: 1.2.0)"; resultEl.style.color = "#f04747"; resultEl.classList.remove("hidden"); }
+        return;
+      }
+      const res = await api("/api/admin/min-version", { version }, "POST");
+      if (res.ok) {
+        const cur = $("admin-min-version-current");
+        if (cur) cur.textContent = "Atual: " + res.minVersion;
+        if (input) input.value = "";
+        if (resultEl) { resultEl.textContent = "✓ Versão mínima atualizada para " + res.minVersion; resultEl.style.color = "#3ba55c"; resultEl.classList.remove("hidden"); setTimeout(() => resultEl.classList.add("hidden"), 4000); }
+      } else {
+        if (resultEl) { resultEl.textContent = res.error || "Erro ao salvar"; resultEl.style.color = "#f04747"; resultEl.classList.remove("hidden"); }
+      }
+    });
+  }
+}
+
 let _perfilWired = false;
 function wirePerfil() {
   if (_perfilWired) return;
@@ -2391,6 +2454,22 @@ function wirePerfil() {
       setTimeout(() => { btn2.textContent = orig2; btn2.style.background = ''; }, 2500);
     }
   });
+
+  // Effect generator
+  const btnEffect = $("btn-perfil-effect");
+  if (btnEffect) {
+    btnEffect.addEventListener("click", () => {
+      const id = $("perfil-effect-id").value.trim();
+      if (!id || !/^\d+$/.test(id)) { alert('ID inválido. Use apenas números (ex: 7104920267381678082)'); return; }
+      const encoded = ' ' + encode3y3(`fx{${id}}`);
+      $("perfil-effect-code").value = encoded;
+      $("perfil-effect-result").classList.remove("hidden");
+      const orig = btnEffect.textContent;
+      btnEffect.textContent = '✓ Código gerado!';
+      btnEffect.style.background = '#3ba55c';
+      setTimeout(() => { btnEffect.textContent = orig; btnEffect.style.background = ''; }, 2500);
+    });
+  }
 
   // Copy buttons
   document.querySelectorAll(".btn-copy-code").forEach(btn => {

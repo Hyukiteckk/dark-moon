@@ -1164,20 +1164,43 @@
           </div>
         </div>
 
+        <!-- Efeito de Perfil -->
+        <div class="section-card">
+          <div class="card-header">
+            <h3>Efeito de Perfil</h3>
+          </div>
+          <p class="card-hint" style="margin-bottom:8px">Adiciona um efeito animado no perfil — visível para quem tem o plugin.</p>
+          <p class="card-hint" style="margin-bottom:14px;opacity:.7;font-size:12px">Cole o SKU ID do efeito. Encontre IDs em <b>discord.sale</b> ou inspecionando a loja do Discord.</p>
+          <div class="field-group" style="margin-bottom:12px">
+            <label>SKU ID do Efeito</label>
+            <input id="perfil-effect-id" type="text" placeholder="1234567890123456789" autocomplete="off" />
+          </div>
+          <button id="btn-perfil-effect" class="btn-primary btn-sm">Gerar Código</button>
+          <div id="perfil-effect-result" class="perfil-result hidden">
+            <label class="field-label">Código 3y3 — cole na sua bio do Discord: <span style="opacity:.6;font-size:11px">(invisível, use o botão copiar)</span></label>
+            <div class="perfil-code-row">
+              <textarea id="perfil-effect-code" class="perfil-code" readonly rows="2"></textarea>
+              <button class="btn-copy-code" data-target="perfil-effect-code" title="Copiar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Como usar -->
         <div class="section-card">
           <div class="card-header">
             <h3>Como usar</h3>
           </div>
           <ol class="perfil-steps">
-            <li>Gere o código acima e copie-o</li>
+            <li>Gere o(s) código(s) acima e copie-os</li>
             <li>Abra o Discord → clique no seu avatar → <b>Editar Perfil</b></li>
-            <li>Cole o código invisível no campo <b>Sobre mim (Bio)</b></li>
-            <li>Salve — o código fica invisível, isso é normal</li>
-            <li>Outros usuários com o plugin <b>OrionQuests</b> instalado verão seu banner/cores</li>
+            <li>Cole os códigos invisíveis no campo <b>Sobre mim (Bio)</b></li>
+            <li>Salve — os códigos ficam invisíveis, isso é normal</li>
+            <li>Outros usuários com o plugin <b>OrionQuests</b> instalado verão seu banner/cores/efeito</li>
           </ol>
           <div class="perfil-note">
-            Você pode combinar múltiplos códigos (banner + cores) colando ambos na mesma bio. Cada código ocupa espaço invisível.
+            Combine múltiplos códigos (banner + cores + efeito) colando todos na mesma bio. Cada código ocupa ~20-80 chars invisíveis.
           </div>
         </div>
       </section>
@@ -1210,6 +1233,29 @@
           <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 8px">Defina o cargo e as abas liberadas para cada pessoa clicando em <strong>Acesso ▾</strong>.</p>
           <div id="admin-role-result" class="result-box hidden" style="margin-bottom:8px"></div>
           <div id="admin-all-list" class="admin-user-list">Carregando...</div>
+        </div>
+
+        <!-- MIN_VERSION -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">🔒 Versão mínima obrigatória</div>
+          <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 12px">Usuários com versão do app mais antiga serão bloqueados no login.</p>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input id="admin-min-version-input" type="text" placeholder="ex: 1.1.0" style="max-width:130px;padding:6px 10px;background:var(--input-bg,#1e1f22);border:1px solid var(--border,#3a3b3d);border-radius:6px;color:var(--text-normal,#fff);font-size:.85rem" />
+            <button id="btn-admin-save-min-version" class="btn-primary btn-sm">Salvar</button>
+            <span id="admin-min-version-current" style="color:var(--text-muted);font-size:.78rem">Atual: carregando...</span>
+          </div>
+          <div id="admin-min-version-result" class="result-box hidden" style="margin-top:8px"></div>
+        </div>
+
+        <!-- Plugin versão -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">🔌 Plugin OrionQuests</div>
+          <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 12px">Versão atual do plugin disponível para os membros instalarem.</p>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span id="admin-plugin-version" style="font-size:.85rem;color:var(--text-normal,#fff)">Carregando...</span>
+            <a id="admin-plugin-download" href="/OrionQuests.plugin.js" download="OrionQuests.plugin.js" class="btn-primary btn-sm" style="text-decoration:none">⬇ Baixar plugin</a>
+          </div>
+          <p style="color:var(--text-muted);font-size:.74rem;margin:8px 0 0">Membros devem reinstalar sempre que a versão mudar.</p>
         </div>
       </section>
 
