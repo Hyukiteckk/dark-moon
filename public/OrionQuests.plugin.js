@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.5
+ * @version 1.2.6
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2039,48 +2039,26 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
 
-            // ── 2. Envia emoji cross-server como hyperlink (visível pra todos) ──
+            // ── 2. Envia emoji cross-server como emoji real <:name:id> ──────────
             try {
-                const MsgActions    = Webpack.getByKeys("jumpToMessage", "_sendMessage");
-                const AvatarDefaults = Webpack.getByKeys("getEmojiURL");
-                const EmojiStore    = Webpack.getStore("EmojiStore");
-                if (MsgActions) {
+                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage");
+                const EmojiStore = Webpack.getStore("EmojiStore");
+                if (MsgActions && EmojiStore) {
                     Patcher.before(MsgActions, "sendMessage", (_, [, msg]) => {
-                        if (!msg) return;
-                        let iter = 0;
-
-                        // A) Emojis selecionados pelo picker (já têm <:name:id> no content)
-                        if (msg.validNonShortcutEmojis?.length && AvatarDefaults) {
-                            msg.validNonShortcutEmojis.forEach(emoji => {
-                                if (!emoji?.id || emoji.type === 'UNICODE' || emoji.managed) return;
-                                let url = AvatarDefaults.getEmojiURL({ ...emoji, forcePNG: !emoji.animated });
-                                if (emoji.animated) url = url.replace(/\.(webp|png)(\?|$)/, '.gif$2');
-                                const emojiStr = `<${emoji.animated ? 'a:' : ':'}${emoji.name}:${emoji.id}>`;
-                                if (msg.content.includes('-' + emojiStr)) {
-                                    msg.content = msg.content.replace('-' + emojiStr, emojiStr);
-                                    return;
-                                }
-                                iter++;
-                                const cleanUrl = url.split('?')[0] + `?size=64&quality=lossless&_=${iter}`;
-                                msg.content = msg.content.replace(emojiStr, `[${emoji.name}](${cleanUrl})`);
-                            });
-                        }
-
-                        // B) Emojis digitados como :nome: — busca em todos os servidores
-                        if (EmojiStore && msg.content?.includes(':')) {
-                            const guilds = EmojiStore.getGuilds?.() || {};
-                            msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
-                                for (const guild of Object.values(guilds)) {
-                                    const emoji = (guild.emojis || []).find(e => e.name === name || e.originalName === name);
-                                    if (!emoji?.id) continue;
-                                    const ext = emoji.animated ? 'gif' : 'png';
-                                    iter++;
-                                    const url = `https://cdn.discordapp.com/emojis/${emoji.id}.${ext}?size=64&quality=lossless&_=${iter}`;
-                                    return `[${name}](${url})`;
-                                }
-                                return match; // emoji padrão Unicode ou não encontrado — mantém
-                            });
-                        }
+                        if (!msg?.content?.includes(':')) return;
+                        // Resolve :nome: digitado → <:nome:id> real
+                        // Emojis do picker já chegam como <:nome:id>, passam direto
+                        const guilds = EmojiStore.getGuilds?.() || {};
+                        msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
+                            for (const guild of Object.values(guilds)) {
+                                const emoji = (guild.emojis || []).find(
+                                    e => e.name === name || e.originalName === name
+                                );
+                                if (!emoji?.id) continue;
+                                return `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`;
+                            }
+                            return match; // Unicode ou não encontrado — mantém como está
+                        });
                     });
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji send:', e); }
