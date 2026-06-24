@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.3
+ * @version 1.2.4
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2232,6 +2232,34 @@ module.exports = class OrionQuests {
                     });
                 }
             } catch(e) { console.warn('[DM-Bypass] Theme persist (settings-proto):', e); }
+
+            // ── 6d. Figurinhas (stickers) sem Nitro ──────────────────────────────
+            try {
+                // getStickerSendability retorna enum: 0=SENDABLE, 1=PREMIUM, 2=BOOSTED, 3=NOT_SENDABLE
+                // Patchamos pra sempre retornar 0 (SENDABLE)
+                const stickerMod = Webpack.getModule(m => {
+                    try { return typeof m?.getStickerSendability === 'function'; }
+                    catch { return false; }
+                });
+                if (stickerMod) {
+                    Patcher.instead(stickerMod, 'getStickerSendability', () => 0);
+                }
+            } catch(e) { console.warn('[DM-Bypass] Sticker sendability:', e); }
+            try {
+                const stickerCapFns = [
+                    'canUseStickersEverywhere',
+                    'canUseCustomStickersEverywhere',
+                    'canUseHighQualityLottieStickerPlayer',
+                ];
+                for (const fnName of stickerCapFns) {
+                    const mod = Webpack.getModule(m => {
+                        try { return typeof m?.[fnName] === 'function'; }
+                        catch { return false; }
+                    }, { searchExports: true });
+                    if (mod && typeof mod[fnName] === 'function')
+                        Patcher.instead(mod, fnName, () => true);
+                }
+            } catch(e) { console.warn('[DM-Bypass] Sticker caps:', e); }
 
             // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
             try {
