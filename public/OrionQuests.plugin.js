@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.7
+ * @version 1.2.8
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2048,20 +2048,33 @@ module.exports = class OrionQuests {
                 const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage");
                 const EmojiStore = Webpack.getStore("EmojiStore");
                 if (MsgActions && EmojiStore) {
+                    // Busca emoji por nome em qualquer estrutura que o Discord use
+                    function _findEmoji(name) {
+                        // Tenta getGuilds()
+                        const guilds = EmojiStore.getGuilds?.() || {};
+                        for (const guild of Object.values(guilds)) {
+                            const raw = guild?.emojis;
+                            if (!raw) continue;
+                            // Array ou objeto (keyed by id)
+                            const list = Array.isArray(raw) ? raw : Object.values(raw);
+                            const e = list.find(e => e?.name === name || e?.originalName === name);
+                            if (e?.id) return e;
+                        }
+                        // Tenta getAll() como fallback
+                        try {
+                            const all = EmojiStore.getAll?.() || [];
+                            const allList = Array.isArray(all) ? all : Object.values(all);
+                            const e = allList.find(e => e?.name === name || e?.originalName === name);
+                            if (e?.id) return e;
+                        } catch {}
+                        return null;
+                    }
                     Patcher.before(MsgActions, "sendMessage", (_, [, msg]) => {
                         if (!msg?.content?.includes(':')) return;
-                        // Resolve :nome: digitado → <:nome:id> real
-                        // Emojis do picker já chegam como <:nome:id>, passam direto
-                        const guilds = EmojiStore.getGuilds?.() || {};
                         msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
-                            for (const guild of Object.values(guilds)) {
-                                const emoji = (guild.emojis || []).find(
-                                    e => e.name === name || e.originalName === name
-                                );
-                                if (!emoji?.id) continue;
-                                return `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`;
-                            }
-                            return match; // Unicode ou não encontrado — mantém como está
+                            const e = _findEmoji(name);
+                            if (!e) return match;
+                            return `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
                         });
                     });
                 }
