@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.3.4
+ * @version 1.3.5
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2043,27 +2043,58 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
 
-            // ── 2. Envia emoji cross-server como emoji real <:name:id> ──────────
+            // ── 2. Envia emoji como imagem CDN (funciona cross-server sem Nitro) ──
+            // <:name:id> é bloqueado pelo servidor do Discord para contas sem Nitro.
+            // Solução: substituir :name: pela URL da imagem do emoji no CDN do Discord.
             try {
-                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage")
-                    || Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage");
-                const EmojiStore  = Webpack.getStore("EmojiStore")
-                    || Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function');
+                let MsgActions = null;
+                for (const fn of [
+                    () => Webpack.getByKeys("jumpToMessage", "_sendMessage"),
+                    () => Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage"),
+                    () => Webpack.getByKeys("sendMessage", "editMessage"),
+                    () => Webpack.getModule(m => { try { return Object.prototype.hasOwnProperty.call(m, 'sendMessage') && typeof m.sendMessage === 'function' && typeof m.editMessage === 'function'; } catch { return false; } }),
+                ]) { try { const r = fn(); if (r?.sendMessage) { MsgActions = r; break; } } catch {} }
 
-                if (MsgActions && EmojiStore) {
-                    Patcher.before(MsgActions, "sendMessage", (_, [, msg]) => {
+                let EmojiStore = null;
+                for (const fn of [
+                    () => Webpack.getStore("EmojiStore"),
+                    () => Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function'),
+                ]) { try { const r = fn(); if (r) { EmojiStore = r; break; } } catch {} }
+
+                function _findEmojiForCDN(name) {
+                    // getAll() — lista plana
+                    try {
+                        const all = EmojiStore?.getAll?.();
+                        if (all) {
+                            const list = Array.isArray(all) ? all : (all instanceof Map ? Array.from(all.values()) : Object.values(all));
+                            const e = list.find(e => e?.name === name || e?.originalName === name);
+                            if (e?.id) return e;
+                        }
+                    } catch {}
+                    // getGuilds() — por servidor
+                    try {
+                        const guilds = EmojiStore?.getGuilds?.() || {};
+                        for (const g of Object.values(guilds)) {
+                            let list = g?.emojis;
+                            if (!list) continue;
+                            if (!Array.isArray(list)) list = list instanceof Map ? Array.from(list.values()) : Object.values(list);
+                            const e = list.find(e => e?.name === name || e?.originalName === name);
+                            if (e?.id) return e;
+                        }
+                    } catch {}
+                    return null;
+                }
+
+                if (MsgActions?.sendMessage) {
+                    Patcher.before(MsgActions, "sendMessage", (_, args) => {
+                        const msg = args[1];
                         if (!msg?.content?.includes(':')) return;
-                        const guilds = EmojiStore.getGuilds?.() || {};
                         msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
-                            for (const guild of Object.values(guilds)) {
-                                // guild.emojis pode ser array, objeto ou Map
-                                let list = guild?.emojis;
-                                if (!list) continue;
-                                if (!Array.isArray(list)) list = list instanceof Map ? Array.from(list.values()) : Object.values(list);
-                                const emoji = list.find(e => e?.name === name || e?.originalName === name);
-                                if (emoji?.id) return `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`;
-                            }
-                            return match;
+                            const e = _findEmojiForCDN(name);
+                            if (!e?.id) return match;
+                            // Envia como URL de imagem — aparece inline no Discord
+                            const ext = e.animated ? 'gif' : 'webp';
+                            return `https://cdn.discordapp.com/emojis/${e.id}.${ext}?size=64&quality=lossless`;
                         });
                     });
                 }
