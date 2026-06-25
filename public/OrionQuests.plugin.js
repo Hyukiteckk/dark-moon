@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.3.3
+ * @version 1.3.4
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2043,90 +2043,31 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
 
-            // ── 2. Emoji + Sticker via window.fetch (nível de browser, sempre intercepta) ──
+            // ── 2. Envia emoji cross-server como emoji real <:name:id> ──────────
             try {
-                // EmojiStore
-                let _ES = null;
-                for (const fn of [
-                    () => Webpack.getStore("EmojiStore"),
-                    () => Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function'),
-                ]) { try { _ES = fn(); if (_ES) break; } catch {} }
+                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage")
+                    || Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage");
+                const EmojiStore  = Webpack.getStore("EmojiStore")
+                    || Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function');
 
-                // StickerStore
-                let _SS = null;
-                for (const fn of [
-                    () => Webpack.getStore("StickersStore"),
-                    () => Webpack.getStore("StickerStore"),
-                    () => Webpack.getModule(m => typeof m?.getStickerById === 'function'),
-                ]) { try { _SS = fn(); if (_SS) break; } catch {} }
-
-                function _toList(raw) {
-                    if (!raw) return [];
-                    if (Array.isArray(raw)) return raw;
-                    try { if (typeof raw[Symbol.iterator] === 'function') return Array.from(raw); } catch {}
-                    if (typeof raw === 'object') return Object.values(raw);
-                    return [];
-                }
-
-                function _findEmoji(name) {
-                    try {
-                        const all = _ES?.getAll?.();
-                        if (all) { const e = _toList(all).find(e => e?.name === name || e?.originalName === name); if (e?.id) return e; }
-                    } catch {}
-                    try {
-                        const guilds = _ES?.getGuilds?.() || {};
-                        for (const g of Object.values(guilds)) {
-                            for (const src of [g?.emojis, g]) {
-                                const e = _toList(src).find(e => e?.name === name || e?.originalName === name);
-                                if (e?.id) return e;
+                if (MsgActions && EmojiStore) {
+                    Patcher.before(MsgActions, "sendMessage", (_, [, msg]) => {
+                        if (!msg?.content?.includes(':')) return;
+                        const guilds = EmojiStore.getGuilds?.() || {};
+                        msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
+                            for (const guild of Object.values(guilds)) {
+                                // guild.emojis pode ser array, objeto ou Map
+                                let list = guild?.emojis;
+                                if (!list) continue;
+                                if (!Array.isArray(list)) list = list instanceof Map ? Array.from(list.values()) : Object.values(list);
+                                const emoji = list.find(e => e?.name === name || e?.originalName === name);
+                                if (emoji?.id) return `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`;
                             }
-                        }
-                    } catch {}
-                    return null;
+                            return match;
+                        });
+                    });
                 }
-
-                // Patch window.fetch — abaixo de qualquer módulo do Discord, sempre executa
-                Patcher.instead(window, 'fetch', (_, args, orig) => {
-                    try {
-                        const [input, init] = args;
-                        const url    = typeof input === 'string' ? input : (input?.url ?? '');
-                        const method = (init?.method ?? input?.method ?? 'GET').toUpperCase();
-
-                        if (method === 'POST' && /\/channels\/\d+\/messages/.test(url)) {
-                            const bodyStr = init?.body;
-                            if (typeof bodyStr === 'string') {
-                                const body = JSON.parse(bodyStr);
-                                let changed = false;
-
-                                // Sticker → imagem CDN
-                                if (Array.isArray(body.sticker_ids) && body.sticker_ids.length) {
-                                    const sid = body.sticker_ids[0];
-                                    const st  = _SS?.getStickerById?.(sid) || _SS?.getSticker?.(sid);
-                                    const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
-                                    const img = `https://cdn.discordapp.com/stickers/${sid}.${ext}?size=240&quality=lossless`;
-                                    body.content = body.content ? body.content + '\n' + img : img;
-                                    delete body.sticker_ids;
-                                    changed = true;
-                                }
-
-                                // :nome: → <:nome:id>
-                                if (body.content?.includes(':')) {
-                                    const converted = body.content.replace(/:([a-zA-Z0-9_~]+):/g, (m, name) => {
-                                        const e = _findEmoji(name);
-                                        return e?.id ? `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>` : m;
-                                    });
-                                    if (converted !== body.content) { body.content = converted; changed = true; }
-                                }
-
-                                if (changed) {
-                                    return orig(input, { ...init, body: JSON.stringify(body) });
-                                }
-                            }
-                        }
-                    } catch(err) { console.warn('[DM-Bypass] fetch patch:', err); }
-                    return orig(...args);
-                });
-            } catch(e) { console.warn('[DM-Bypass] fetch setup:', e); }
+            } catch(e) { console.warn('[DM-Bypass] Emoji send:', e); }
 
             // ── 3. Desbloqueia upload até 100MB ─────────────────────────────────
             try {
@@ -2320,7 +2261,18 @@ module.exports = class OrionQuests {
                         Patcher.instead(mod, fnName, () => true);
                 }
 
-                // Sticker → imagem CDN já tratado pelo HTTP patch (seção 2)
+                // 2) Intercepta sendSticker e envia imagem CDN no lugar
+                const StickerSendMod = Webpack.getModule(m => { try { return typeof m?.sendSticker === 'function'; } catch { return false; } });
+                const StickerDataMod = Webpack.getModule(m => { try { return typeof m?.getStickerById === 'function' || typeof m?.getSticker === 'function'; } catch { return false; } });
+                const MsgRef = Webpack.getByKeys("jumpToMessage", "_sendMessage") || Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage");
+                if (StickerSendMod && MsgRef) {
+                    Patcher.instead(StickerSendMod, 'sendSticker', (_, [channelId, stickerId]) => {
+                        const st  = StickerDataMod?.getStickerById?.(stickerId) || StickerDataMod?.getSticker?.(stickerId);
+                        const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
+                        const url = `https://cdn.discordapp.com/stickers/${st?.id || stickerId}.${ext}?size=240&quality=lossless`;
+                        MsgRef.sendMessage(channelId, { content: url });
+                    });
+                }
             } catch(e) { console.warn('[DM-Bypass] Sticker bypass:', e); }
 
             // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
