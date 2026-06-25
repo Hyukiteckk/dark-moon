@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.3.5
+ * @version 1.3.6
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2092,9 +2092,9 @@ module.exports = class OrionQuests {
                         msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
                             const e = _findEmojiForCDN(name);
                             if (!e?.id) return match;
-                            // Envia como URL de imagem — aparece inline no Discord
-                            const ext = e.animated ? 'gif' : 'webp';
-                            return `https://cdn.discordapp.com/emojis/${e.id}.${ext}?size=64&quality=lossless`;
+                            // .gif embuda automaticamente no Discord; .webp não
+                            const ext = e.animated ? 'gif' : 'png';
+                            return `https://cdn.discordapp.com/emojis/${e.id}.${ext}`;
                         });
                     });
                 }
