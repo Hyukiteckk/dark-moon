@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.9
+ * @version 1.3.0
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2045,30 +2045,63 @@ module.exports = class OrionQuests {
 
             // ── 2. Envia emoji cross-server como emoji real <:name:id> ──────────
             try {
-                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage");
-                const EmojiStore = Webpack.getStore("EmojiStore");
-                if (MsgActions && EmojiStore) {
-                    // Busca emoji por nome em qualquer estrutura que o Discord use
+                // Múltiplos candidatos para MsgActions (chaves mudam entre versões)
+                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage")
+                    || Webpack.getByKeys("sendMessage", "editMessage")
+                    || Webpack.getModule(m => typeof m?.sendMessage === 'function' && typeof m?.editMessage === 'function');
+
+                // Múltiplos candidatos para EmojiStore
+                const EmojiStore = Webpack.getStore("EmojiStore")
+                    || Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function')
+                    || Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getGuildId === 'function');
+
+                if (MsgActions) {
+                    function _toList(raw) {
+                        if (!raw) return [];
+                        if (Array.isArray(raw)) return raw;
+                        if (raw instanceof Map) return Array.from(raw.values());
+                        if (typeof raw === 'object') return Object.values(raw);
+                        return [];
+                    }
+
                     function _findEmoji(name) {
-                        // Tenta getGuilds()
-                        const guilds = EmojiStore.getGuilds?.() || {};
-                        for (const guild of Object.values(guilds)) {
-                            const raw = guild?.emojis;
-                            if (!raw) continue;
-                            // Array ou objeto (keyed by id)
-                            const list = Array.isArray(raw) ? raw : Object.values(raw);
-                            const e = list.find(e => e?.name === name || e?.originalName === name);
-                            if (e?.id) return e;
-                        }
-                        // Tenta getAll() como fallback
+                        // 1) getAll() — lista plana mais rápida
                         try {
-                            const all = EmojiStore.getAll?.() || [];
-                            const allList = Array.isArray(all) ? all : Object.values(all);
-                            const e = allList.find(e => e?.name === name || e?.originalName === name);
-                            if (e?.id) return e;
+                            const all = EmojiStore?.getAll?.();
+                            if (all) {
+                                const e = _toList(all).find(e => e?.name === name || e?.originalName === name);
+                                if (e?.id) return e;
+                            }
                         } catch {}
+
+                        // 2) getGuilds() — iterar por servidor
+                        try {
+                            const guilds = EmojiStore?.getGuilds?.() || {};
+                            for (const guild of Object.values(guilds)) {
+                                // guild.emojis pode ser array, objeto, Map ou o próprio guild É a lista
+                                for (const raw of [guild?.emojis, guild]) {
+                                    const e = _toList(raw).find(e => e?.name === name || e?.originalName === name);
+                                    if (e?.id) return e;
+                                }
+                            }
+                        } catch {}
+
+                        // 3) Varredura geral em módulos do Webpack
+                        try {
+                            const altStore = Webpack.getModule(m =>
+                                m !== EmojiStore &&
+                                typeof m?.getGuilds === 'function' &&
+                                typeof m?.getAll === 'function'
+                            );
+                            if (altStore) {
+                                const e = _toList(altStore.getAll?.()).find(e => e?.name === name);
+                                if (e?.id) return e;
+                            }
+                        } catch {}
+
                         return null;
                     }
+
                     Patcher.before(MsgActions, "sendMessage", (_, [, msg]) => {
                         if (!msg?.content?.includes(':')) return;
                         msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
