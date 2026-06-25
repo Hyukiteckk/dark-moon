@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.2.8
+ * @version 1.2.9
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2251,17 +2251,13 @@ module.exports = class OrionQuests {
 
             // ── 6d. Figurinhas (stickers) sem Nitro ──────────────────────────────
             try {
-                // getStickerSendability retorna enum: 0=SENDABLE, 1=PREMIUM, 2=BOOSTED, 3=NOT_SENDABLE
-                // Patchamos pra sempre retornar 0 (SENDABLE)
+                // 1) Remove restrição visual (client-side)
                 const stickerMod = Webpack.getModule(m => {
                     try { return typeof m?.getStickerSendability === 'function'; }
                     catch { return false; }
                 });
-                if (stickerMod) {
-                    Patcher.instead(stickerMod, 'getStickerSendability', () => 0);
-                }
-            } catch(e) { console.warn('[DM-Bypass] Sticker sendability:', e); }
-            try {
+                if (stickerMod) Patcher.instead(stickerMod, 'getStickerSendability', () => 0);
+
                 const stickerCapFns = [
                     'canUseStickersEverywhere',
                     'canUseCustomStickersEverywhere',
@@ -2275,7 +2271,31 @@ module.exports = class OrionQuests {
                     if (mod && typeof mod[fnName] === 'function')
                         Patcher.instead(mod, fnName, () => true);
                 }
-            } catch(e) { console.warn('[DM-Bypass] Sticker caps:', e); }
+
+                // 2) Intercepta o sendSticker real e envia a imagem no lugar
+                //    (Discord valida Nitro server-side, então jogamos a imagem como mensagem)
+                const StickerSendMod = Webpack.getModule(m => {
+                    try { return typeof m?.sendSticker === 'function'; }
+                    catch { return false; }
+                });
+                const StickerDataMod = Webpack.getModule(m => {
+                    try { return typeof m?.getStickerById === 'function' || typeof m?.getSticker === 'function'; }
+                    catch { return false; }
+                });
+                const MsgRef = Webpack.getByKeys('jumpToMessage', '_sendMessage');
+
+                if (StickerSendMod && MsgRef) {
+                    Patcher.instead(StickerSendMod, 'sendSticker', (_, [channelId, stickerId]) => {
+                        const sticker = StickerDataMod?.getStickerById?.(stickerId)
+                                     || StickerDataMod?.getSticker?.(stickerId);
+                        // format_type: 1=PNG, 2=APNG, 3=Lottie(JSON), 4=GIF
+                        const ext = (sticker?.format_type === 4 || sticker?.format_type === 2) ? 'gif' : 'png';
+                        const id  = sticker?.id || stickerId;
+                        const url = `https://cdn.discordapp.com/stickers/${id}.${ext}?size=240&quality=lossless`;
+                        MsgRef.sendMessage(channelId, { content: url });
+                    });
+                }
+            } catch(e) { console.warn('[DM-Bypass] Sticker bypass:', e); }
 
             // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
             try {
