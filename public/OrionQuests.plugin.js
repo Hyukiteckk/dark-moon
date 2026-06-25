@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.3.0
+ * @version 1.3.1
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2043,75 +2043,109 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
 
-            // ── 2. Envia emoji cross-server como emoji real <:name:id> ──────────
+            // ── 2. Emoji + Sticker unificado no sendMessage ───────────────────
             try {
-                // Múltiplos candidatos para MsgActions (chaves mudam entre versões)
-                const MsgActions = Webpack.getByKeys("jumpToMessage", "_sendMessage")
-                    || Webpack.getByKeys("sendMessage", "editMessage")
-                    || Webpack.getModule(m => typeof m?.sendMessage === 'function' && typeof m?.editMessage === 'function');
-
-                // Múltiplos candidatos para EmojiStore
-                const EmojiStore = Webpack.getStore("EmojiStore")
-                    || Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function')
-                    || Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getGuildId === 'function');
-
-                if (MsgActions) {
-                    function _toList(raw) {
-                        if (!raw) return [];
-                        if (Array.isArray(raw)) return raw;
-                        if (raw instanceof Map) return Array.from(raw.values());
-                        if (typeof raw === 'object') return Object.values(raw);
-                        return [];
-                    }
-
-                    function _findEmoji(name) {
-                        // 1) getAll() — lista plana mais rápida
-                        try {
-                            const all = EmojiStore?.getAll?.();
-                            if (all) {
-                                const e = _toList(all).find(e => e?.name === name || e?.originalName === name);
-                                if (e?.id) return e;
-                            }
-                        } catch {}
-
-                        // 2) getGuilds() — iterar por servidor
-                        try {
-                            const guilds = EmojiStore?.getGuilds?.() || {};
-                            for (const guild of Object.values(guilds)) {
-                                // guild.emojis pode ser array, objeto, Map ou o próprio guild É a lista
-                                for (const raw of [guild?.emojis, guild]) {
-                                    const e = _toList(raw).find(e => e?.name === name || e?.originalName === name);
-                                    if (e?.id) return e;
-                                }
-                            }
-                        } catch {}
-
-                        // 3) Varredura geral em módulos do Webpack
-                        try {
-                            const altStore = Webpack.getModule(m =>
-                                m !== EmojiStore &&
-                                typeof m?.getGuilds === 'function' &&
-                                typeof m?.getAll === 'function'
-                            );
-                            if (altStore) {
-                                const e = _toList(altStore.getAll?.()).find(e => e?.name === name);
-                                if (e?.id) return e;
-                            }
-                        } catch {}
-
-                        return null;
-                    }
-
-                    Patcher.before(MsgActions, "sendMessage", (_, [, msg]) => {
-                        if (!msg?.content?.includes(':')) return;
-                        msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
-                            const e = _findEmoji(name);
-                            if (!e) return match;
-                            return `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
-                        });
-                    });
+                // --- Localiza MsgActions (várias estratégias) ---
+                let MsgActions = null;
+                const _msgCandidates = [
+                    () => Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage"),
+                    () => Webpack.getByKeys("sendMessage", "receiveMessage"),
+                    () => Webpack.getModule(m => {
+                        try { return typeof m?.sendMessage === 'function' && typeof m?.editMessage === 'function'; }
+                        catch { return false; }
+                    }, { searchExports: true }),
+                ];
+                for (const fn of _msgCandidates) {
+                    try { MsgActions = fn(); if (MsgActions?.sendMessage) break; } catch {}
                 }
-            } catch(e) { console.warn('[DM-Bypass] Emoji send:', e); }
+
+                // --- Localiza EmojiStore ---
+                let EmojiStore = null;
+                const _emojiCandidates = [
+                    () => Webpack.getStore("EmojiStore"),
+                    () => Webpack.getModule(m => typeof m?.getGuilds === 'function' && typeof m?.getAll === 'function', { searchExports: true }),
+                    () => Webpack.getModule(m => typeof m?.getCustomEmojiById === 'function', { searchExports: true }),
+                ];
+                for (const fn of _emojiCandidates) {
+                    try { EmojiStore = fn(); if (EmojiStore) break; } catch {}
+                }
+
+                // --- Localiza StickerStore ---
+                let StickerStore = null;
+                const _stickerCandidates = [
+                    () => Webpack.getStore("StickersStore"),
+                    () => Webpack.getStore("StickerStore"),
+                    () => Webpack.getModule(m => typeof m?.getStickerById === 'function', { searchExports: true }),
+                    () => Webpack.getModule(m => typeof m?.getSticker === 'function' && typeof m?.getStickerPack === 'function', { searchExports: true }),
+                ];
+                for (const fn of _stickerCandidates) {
+                    try { StickerStore = fn(); if (StickerStore) break; } catch {}
+                }
+
+                function _toList(raw) {
+                    if (!raw) return [];
+                    if (Array.isArray(raw)) return raw;
+                    if (typeof raw[Symbol.iterator] === 'function') return Array.from(raw);
+                    if (typeof raw === 'object') return Object.values(raw);
+                    return [];
+                }
+
+                function _findEmoji(name) {
+                    // 1) getAll() plano
+                    try {
+                        const all = EmojiStore?.getAll?.();
+                        if (all) {
+                            const e = _toList(all).find(e => e?.name === name || e?.originalName === name);
+                            if (e?.id) return e;
+                        }
+                    } catch {}
+                    // 2) getCustomEmojiById por nome (se disponível)
+                    try {
+                        const byId = EmojiStore?.getCustomEmojiById;
+                        // não temos o ID mas podemos iterar getGuilds
+                    } catch {}
+                    // 3) getGuilds() por servidor
+                    try {
+                        const guilds = EmojiStore?.getGuilds?.() || {};
+                        for (const guild of Object.values(guilds)) {
+                            for (const src of [guild?.emojis, guild]) {
+                                const e = _toList(src).find(e => e?.name === name || e?.originalName === name);
+                                if (e?.id) return e;
+                            }
+                        }
+                    } catch {}
+                    return null;
+                }
+
+                if (MsgActions?.sendMessage) {
+                    Patcher.before(MsgActions, "sendMessage", (_, args) => {
+                        const msg = args[1];
+                        if (!msg) return;
+
+                        // --- Sticker → imagem CDN ---
+                        const stickerIds = msg.sticker_ids;
+                        if (Array.isArray(stickerIds) && stickerIds.length) {
+                            const sid = stickerIds[0];
+                            const st  = StickerStore?.getStickerById?.(sid) || StickerStore?.getSticker?.(sid);
+                            const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
+                            const url = `https://cdn.discordapp.com/stickers/${st?.id || sid}.${ext}?size=240&quality=lossless`;
+                            msg.content    = msg.content ? msg.content + '\n' + url : url;
+                            msg.sticker_ids = [];
+                        }
+
+                        // --- :nome: → <:nome:id> ---
+                        if (msg.content?.includes(':')) {
+                            msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
+                                const e = _findEmoji(name);
+                                if (!e?.id) return match;
+                                return `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
+                            });
+                        }
+                    });
+                } else {
+                    console.warn('[DM-Bypass] MsgActions não encontrado — emoji/sticker patch ignorado');
+                }
+            } catch(e) { console.warn('[DM-Bypass] Emoji+Sticker send:', e); }
 
             // ── 3. Desbloqueia upload até 100MB ─────────────────────────────────
             try {
@@ -2305,26 +2339,23 @@ module.exports = class OrionQuests {
                         Patcher.instead(mod, fnName, () => true);
                 }
 
-                // 2) Intercepta o sendSticker real e envia a imagem no lugar
-                //    (Discord valida Nitro server-side, então jogamos a imagem como mensagem)
+                // 2) Camada extra: intercepta sendSticker diretamente (backup do patch acima)
                 const StickerSendMod = Webpack.getModule(m => {
                     try { return typeof m?.sendSticker === 'function'; }
                     catch { return false; }
-                });
+                }, { searchExports: true });
                 const StickerDataMod = Webpack.getModule(m => {
                     try { return typeof m?.getStickerById === 'function' || typeof m?.getSticker === 'function'; }
                     catch { return false; }
-                });
-                const MsgRef = Webpack.getByKeys('jumpToMessage', '_sendMessage');
+                }, { searchExports: true });
+                const MsgRef = Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage")
+                    || Webpack.getModule(m => typeof m?.sendMessage === 'function' && typeof m?.editMessage === 'function', { searchExports: true });
 
                 if (StickerSendMod && MsgRef) {
                     Patcher.instead(StickerSendMod, 'sendSticker', (_, [channelId, stickerId]) => {
-                        const sticker = StickerDataMod?.getStickerById?.(stickerId)
-                                     || StickerDataMod?.getSticker?.(stickerId);
-                        // format_type: 1=PNG, 2=APNG, 3=Lottie(JSON), 4=GIF
-                        const ext = (sticker?.format_type === 4 || sticker?.format_type === 2) ? 'gif' : 'png';
-                        const id  = sticker?.id || stickerId;
-                        const url = `https://cdn.discordapp.com/stickers/${id}.${ext}?size=240&quality=lossless`;
+                        const st  = StickerDataMod?.getStickerById?.(stickerId) || StickerDataMod?.getSticker?.(stickerId);
+                        const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
+                        const url = `https://cdn.discordapp.com/stickers/${st?.id || stickerId}.${ext}?size=240&quality=lossless`;
                         MsgRef.sendMessage(channelId, { content: url });
                     });
                 }
