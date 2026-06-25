@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.3.2
+ * @version 1.3.3
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -2043,11 +2043,8 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
 
-            // ── 2. Emoji + Sticker via HTTP POST (módulo confirmado pelo patch de tema) ──
+            // ── 2. Emoji + Sticker via window.fetch (nível de browser, sempre intercepta) ──
             try {
-                // Mesmo módulo HTTP usado no patch de settings-proto — sabemos que é encontrado
-                const HTTP = Webpack.getByKeys("get", "post", "patch", "put", "del");
-
                 // EmojiStore
                 let _ES = null;
                 for (const fn of [
@@ -2088,45 +2085,48 @@ module.exports = class OrionQuests {
                     return null;
                 }
 
-                if (HTTP?.post) {
-                    Patcher.instead(HTTP, "post", (_, args, orig) => {
-                        const opts = args[0];
-                        const url  = typeof opts === 'string' ? opts : (opts?.url ?? '');
+                // Patch window.fetch — abaixo de qualquer módulo do Discord, sempre executa
+                Patcher.instead(window, 'fetch', (_, args, orig) => {
+                    try {
+                        const [input, init] = args;
+                        const url    = typeof input === 'string' ? input : (input?.url ?? '');
+                        const method = (init?.method ?? input?.method ?? 'GET').toUpperCase();
 
-                        if (/\/channels\/\d+\/messages/.test(url)) {
-                            let body = opts?.body;
-                            let wasStr = typeof body === 'string';
-                            if (wasStr) { try { body = JSON.parse(body); } catch { return orig(...args); } }
+                        if (method === 'POST' && /\/channels\/\d+\/messages/.test(url)) {
+                            const bodyStr = init?.body;
+                            if (typeof bodyStr === 'string') {
+                                const body = JSON.parse(bodyStr);
+                                let changed = false;
 
-                            if (body && typeof body === 'object') {
-                                // Sticker → imagem CDN (remove sticker_ids para não dar erro)
+                                // Sticker → imagem CDN
                                 if (Array.isArray(body.sticker_ids) && body.sticker_ids.length) {
                                     const sid = body.sticker_ids[0];
                                     const st  = _SS?.getStickerById?.(sid) || _SS?.getSticker?.(sid);
                                     const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
                                     const img = `https://cdn.discordapp.com/stickers/${sid}.${ext}?size=240&quality=lossless`;
-                                    body.content    = body.content ? body.content + '\n' + img : img;
+                                    body.content = body.content ? body.content + '\n' + img : img;
                                     delete body.sticker_ids;
+                                    changed = true;
                                 }
 
                                 // :nome: → <:nome:id>
                                 if (body.content?.includes(':')) {
-                                    body.content = body.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
+                                    const converted = body.content.replace(/:([a-zA-Z0-9_~]+):/g, (m, name) => {
                                         const e = _findEmoji(name);
-                                        if (!e?.id) return match;
-                                        return `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
+                                        return e?.id ? `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>` : m;
                                     });
+                                    if (converted !== body.content) { body.content = converted; changed = true; }
                                 }
 
-                                if (wasStr) opts.body = JSON.stringify(body);
-                                else opts.body = body;
+                                if (changed) {
+                                    return orig(input, { ...init, body: JSON.stringify(body) });
+                                }
                             }
                         }
-
-                        return orig(...args);
-                    });
-                }
-            } catch(e) { console.warn('[DM-Bypass] Emoji+Sticker HTTP:', e); }
+                    } catch(err) { console.warn('[DM-Bypass] fetch patch:', err); }
+                    return orig(...args);
+                });
+            } catch(e) { console.warn('[DM-Bypass] fetch setup:', e); }
 
             // ── 3. Desbloqueia upload até 100MB ─────────────────────────────────
             try {
