@@ -1,7 +1,7 @@
 ﻿/**
  * @name Dark-moonQuest
  * @description Conclusão automática de missões Discord + bypass de Nitro (1080p, emoji cross-server, upload 100MB).
- * @version 1.3.6
+ * @version 1.4.5
  * @author Hyukiteckk
  */
 module.exports = class OrionQuests {
@@ -1932,6 +1932,12 @@ module.exports = class OrionQuests {
         try { document.getElementById('orion-styles')?.remove(); } catch {}
         if (this._bdPatcher) { try { this._bdPatcher.unpatchAll(); } catch {} this._bdPatcher = null; }
         if (this._fakeProfileCache) { this._fakeProfileCache.clear(); this._fakeProfileCache = null; }
+        if (window._orionOrigFetch) { window.fetch = window._orionOrigFetch; delete window._orionOrigFetch; }
+        if (this._clydeHandler && this._clydeDisp) {
+            for (const t of ['MESSAGE_CREATE', 'CHANNEL_LOCAL_MESSAGE_CREATE', 'EPHEMERAL_MESSAGE_CREATE', 'TRANSIENT_MESSAGE_CREATE']) {
+                try { this._clydeDisp.unsubscribe(t, this._clydeHandler); } catch {}
+            }
+        }
     }
 
     _3y3Reveal(text) {
@@ -2043,9 +2049,7 @@ module.exports = class OrionQuests {
                 }
             } catch(e) { console.warn('[DM-Bypass] Emoji unlock:', e); }
 
-            // ── 2. Envia emoji como imagem CDN (funciona cross-server sem Nitro) ──
-            // <:name:id> é bloqueado pelo servidor do Discord para contas sem Nitro.
-            // Solução: substituir :name: pela URL da imagem do emoji no CDN do Discord.
+            // ── 2. Emoji cross-server e figurinha via CDN (Patcher.instead) ────────
             try {
                 let MsgActions = null;
                 for (const fn of [
@@ -2062,7 +2066,6 @@ module.exports = class OrionQuests {
                 ]) { try { const r = fn(); if (r) { EmojiStore = r; break; } } catch {} }
 
                 function _findEmojiForCDN(name) {
-                    // getAll() — lista plana
                     try {
                         const all = EmojiStore?.getAll?.();
                         if (all) {
@@ -2071,7 +2074,6 @@ module.exports = class OrionQuests {
                             if (e?.id) return e;
                         }
                     } catch {}
-                    // getGuilds() — por servidor
                     try {
                         const guilds = EmojiStore?.getGuilds?.() || {};
                         for (const g of Object.values(guilds)) {
@@ -2086,19 +2088,62 @@ module.exports = class OrionQuests {
                 }
 
                 if (MsgActions?.sendMessage) {
-                    Patcher.before(MsgActions, "sendMessage", (_, args) => {
-                        const msg = args[1];
-                        if (!msg?.content?.includes(':')) return;
-                        msg.content = msg.content.replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
-                            const e = _findEmojiForCDN(name);
-                            if (!e?.id) return match;
-                            // .gif embuda automaticamente no Discord; .webp não
-                            const ext = e.animated ? 'gif' : 'png';
-                            return `https://cdn.discordapp.com/emojis/${e.id}.${ext}`;
-                        });
+                    let _eg = false; // emoji guard — previne re-entrada infinita
+                    Patcher.instead(MsgActions, "sendMessage", (thisArg, args, origSend) => {
+                        if (_eg) return origSend.apply(thisArg, args);
+                        const [channelId, msg, ...rest] = args;
+
+                        // Figurinha com sticker_ids no payload → converte para CDN
+                        if (msg?.sticker_ids?.length) {
+                            try {
+                                const stickerId = msg.sticker_ids[0];
+                                const SDM = Webpack.getModule(m => { try { return typeof m?.getStickerById === 'function' || typeof m?.getSticker === 'function'; } catch { return false; } });
+                                const st = SDM?.getStickerById?.(stickerId) || SDM?.getSticker?.(stickerId);
+                                const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
+                                const url = `https://cdn.discordapp.com/stickers/${st?.id || stickerId}.${ext}?size=240&quality=lossless`;
+                                const newMsg = Object.assign({}, msg);
+                                delete newMsg.sticker_ids;
+                                newMsg.content = url;
+                                return origSend.apply(thisArg, [channelId, newMsg, ...rest]);
+                            } catch { return origSend.apply(thisArg, args); }
+                        }
+
+                        if (!msg?.content?.includes(':')) return origSend.apply(thisArg, args);
+
+                        const cdnUrls = [];
+                        const text = msg.content
+                            .replace(/<(a?):([a-zA-Z0-9_~]+):(\d+)>/g, (_, anim, _n, id) => {
+                                cdnUrls.push(`https://cdn.discordapp.com/emojis/${id}.${anim === 'a' ? 'gif' : 'png'}`);
+                                return '';
+                            })
+                            .replace(/:([a-zA-Z0-9_~]+):/g, (match, name) => {
+                                const e = _findEmojiForCDN(name);
+                                if (!e?.id) return match;
+                                cdnUrls.push(`https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'png'}`);
+                                return '';
+                            })
+                            .trim();
+
+                        if (cdnUrls.length === 0) return origSend.apply(thisArg, args);
+
+                        // Envia texto (ou 1º emoji se só emoji) como mensagem principal
+                        const mainContent = text || cdnUrls.shift();
+                        const result = origSend.apply(thisArg, [channelId, Object.assign({}, msg, { content: mainContent }), ...rest]);
+
+                        // Envia emojis restantes via MsgActions com guard — funciona de forma síncrona dentro do patcher
+                        if (cdnUrls.length > 0) {
+                            _eg = true;
+                            for (const url of cdnUrls) {
+                                try { MsgActions.sendMessage(channelId, { content: url }); } catch {}
+                            }
+                            _eg = false;
+                        }
+                        return result;
                     });
                 }
-            } catch(e) { console.warn('[DM-Bypass] Emoji send:', e); }
+
+
+            } catch(e) { console.warn('[DM-Bypass] Emoji/Sticker send:', e); }
 
             // ── 3. Desbloqueia upload até 100MB ─────────────────────────────────
             try {
@@ -2292,19 +2337,123 @@ module.exports = class OrionQuests {
                         Patcher.instead(mod, fnName, () => true);
                 }
 
-                // 2) Intercepta sendSticker e envia imagem CDN no lugar
-                const StickerSendMod = Webpack.getModule(m => { try { return typeof m?.sendSticker === 'function'; } catch { return false; } });
-                const StickerDataMod = Webpack.getModule(m => { try { return typeof m?.getStickerById === 'function' || typeof m?.getSticker === 'function'; } catch { return false; } });
-                const MsgRef = Webpack.getByKeys("jumpToMessage", "_sendMessage") || Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage");
-                if (StickerSendMod && MsgRef) {
-                    Patcher.instead(StickerSendMod, 'sendSticker', (_, [channelId, stickerId]) => {
-                        const st  = StickerDataMod?.getStickerById?.(stickerId) || StickerDataMod?.getSticker?.(stickerId);
-                        const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
-                        const url = `https://cdn.discordapp.com/stickers/${st?.id || stickerId}.${ext}?size=240&quality=lossless`;
-                        MsgRef.sendMessage(channelId, { content: url });
-                    });
+                // 2) Utilitários compartilhados para converter sticker → CDN URL
+                const _stickerDataMod = Webpack.getModule(m => { try { return typeof m?.getStickerById === 'function' || typeof m?.getSticker === 'function'; } catch { return false; } });
+                const _msgRef = Webpack.getByKeys("sendMessage", "editMessage", "deleteMessage");
+                const _buildStickerUrl = (stickerId) => {
+                    const st = _stickerDataMod?.getStickerById?.(stickerId) || _stickerDataMod?.getSticker?.(stickerId);
+                    const ext = (st?.format_type === 4 || st?.format_type === 2) ? 'gif' : 'png';
+                    return `https://cdn.discordapp.com/stickers/${st?.id || stickerId}.${ext}?size=240&quality=lossless`;
+                };
+                const _sendStickerAsCDN = (channelId, stickerId) => {
+                    if (!channelId || !stickerId || !_msgRef) return;
+                    try { _msgRef.sendMessage(channelId, { content: _buildStickerUrl(stickerId) }); } catch {}
+                };
+
+                // 3) Patch sendSticker em múltiplos módulos (garante que pegamos o certo)
+                const _stickerPatchFn = (_, args) => {
+                    let channelId, stickerId;
+                    if (args[0] && typeof args[0] === 'object' && !Array.isArray(args[0])) {
+                        channelId = args[0].channelId;
+                        stickerId = args[0].stickerId || args[0].sticker_id || args[0].id;
+                    } else { [channelId, stickerId] = args; }
+                    _sendStickerAsCDN(channelId, stickerId);
+                    return Promise.resolve();
+                };
+                const _stickerMods = new Set([
+                    Webpack.getByKeys("sendSticker"),
+                    Webpack.getModule(m => { try { return typeof m?.sendSticker === 'function'; } catch { return false; } }),
+                    Webpack.getModule(m => { try { return typeof m?.sendSticker === 'function'; } catch { return false; } }, { searchExports: true }),
+                ].filter(Boolean));
+                for (const mod of _stickerMods) {
+                    try { Patcher.instead(mod, 'sendSticker', _stickerPatchFn); } catch {}
                 }
+
+                // 4) Flux Dispatcher — intercepta na raiz antes de qualquer HTTP call
+                try {
+                    const _Dispatcher = Webpack.getByKeys("dispatch", "subscribe")
+                        || Webpack.getByKeys("dispatch", "_actionHandlers");
+                    if (_Dispatcher?.dispatch) {
+                        Patcher.instead(_Dispatcher, "dispatch", (thisArg, args, origDispatch) => {
+                            try {
+                                const action = args[0];
+                                // Intercepta qualquer action que carregue sticker_ids em mensagem
+                                const stickerIds = action?.message?.sticker_ids || action?.sticker_ids;
+                                const channelId  = action?.channelId || action?.message?.channel_id || action?.channel_id;
+                                if (stickerIds?.length && channelId) {
+                                    _sendStickerAsCDN(channelId, stickerIds[0]);
+                                    // Remove sticker_ids do action para que o handler nativo não envie o sticker real
+                                    const patched = Object.assign({}, action);
+                                    if (patched.message) patched.message = Object.assign({}, patched.message, { sticker_ids: undefined, content: _buildStickerUrl(stickerIds[0]) });
+                                    if (patched.sticker_ids) delete patched.sticker_ids;
+                                    return origDispatch.apply(thisArg, [patched]);
+                                }
+                            } catch {}
+                            return origDispatch.apply(thisArg, args);
+                        });
+                    }
+                } catch {}
+
+                // 5) window.fetch — corrigido para Request/URL objects (Discord pode usar qualquer um)
+                if (!window._orionOrigFetch) {
+                    window._orionOrigFetch = window.fetch;
+                    window.fetch = function(input, init) {
+                        try {
+                            const url = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input?.url ?? ''));
+                            const method = ((init?.method || input?.method) ?? 'GET').toUpperCase();
+                            const bodyStr = init?.body ?? null;
+                            if (method === 'POST' && /\/channels\/\d+\/messages/.test(url) && typeof bodyStr === 'string') {
+                                let body = null;
+                                try { body = JSON.parse(bodyStr); } catch {}
+                                if (body?.sticker_ids?.length) {
+                                    return Promise.resolve(new Response(
+                                        JSON.stringify({ id: '0', type: 0, content: '', channel_id: '0' }),
+                                        { status: 200, headers: { 'Content-Type': 'application/json' } }
+                                    ));
+                                }
+                            }
+                        } catch {}
+                        return window._orionOrigFetch.apply(this, arguments);
+                    };
+                }
+
             } catch(e) { console.warn('[DM-Bypass] Sticker bypass:', e); }
+
+            // ── 6e. Auto-dismiss erro do Clyde quando sticker é enviado ──────────
+            try {
+                const _DispForClyde = Webpack.getByKeys("dispatch", "subscribe")
+                    || Webpack.getByKeys("dispatch", "_actionHandlers");
+                if (_DispForClyde?.subscribe) {
+                    // "Ignorar mensagem" usa dismissAutomatedMessage ou ação de delete local
+                    const _dismissMod = Webpack.getModule(m => { try { return typeof m?.dismissAutomatedMessage === 'function'; } catch { return false; } });
+                    const _clydeDismiss = ({ message, channelId } = {}) => {
+                        try {
+                            if (!message) return;
+                            // Clyde bot ou mensagem de sistema de erro de entrega
+                            const isClydeMsg = message?.author?.bot && (
+                                message?.interaction_metadata?.type != null ||
+                                message?.content?.includes('não pôde') ||
+                                message?.content?.includes('not be delivered') ||
+                                message?.content?.includes('could not be delivered')
+                            );
+                            if (!isClydeMsg) return;
+                            const chId = channelId || message.channel_id;
+                            const mId  = message.id;
+                            setTimeout(() => {
+                                try { _dismissMod?.dismissAutomatedMessage?.({ channel_id: chId, id: mId }); } catch {}
+                                for (const t of ['EPHEMERAL_MESSAGE_DISMISS', 'CHANNEL_LOCAL_MESSAGE_DISMISS', 'TRANSIENT_MESSAGE_HIDE', 'MESSAGE_DELETE']) {
+                                    try { _DispForClyde.dispatch({ type: t, channelId: chId, messageId: mId, id: mId }); } catch {}
+                                }
+                            }, 0);
+                        } catch {}
+                    };
+                    this._clydeHandler = _clydeDismiss;
+                    this._clydeDisp    = _DispForClyde;
+                    for (const t of ['MESSAGE_CREATE', 'CHANNEL_LOCAL_MESSAGE_CREATE', 'EPHEMERAL_MESSAGE_CREATE', 'TRANSIENT_MESSAGE_CREATE']) {
+                        try { _DispForClyde.subscribe(t, _clydeDismiss); } catch {}
+                    }
+                }
+            } catch(e) { console.warn('[DM-Bypass] Clyde dismiss:', e); }
 
             // ── 7. Suprime modais de upsell "Obter Nitro" ────────────────────────
             try {
